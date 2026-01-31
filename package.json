@@ -1,0 +1,1468 @@
+{
+  "name": "jas-cluster-pilot",
+  "displayName": "Cluster Pilot",
+  "description": "Kubernetes Lens-style cluster management for VS Code",
+  "version": "0.1.0",
+  "publisher": "jheath",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "kubernetes",
+    "k8s",
+    "kubectl",
+    "docker",
+    "containers",
+    "devops"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:clusterPilot.clusters",
+    "onView:clusterPilot.workloads",
+    "onView:clusterPilot.config",
+    "onView:clusterPilot.network",
+    "onView:clusterPilot.storage",
+    "onCommand:clusterPilot.openKubectlTerminal",
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "lint": "eslint src --ext ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/jest": "^30.0.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^6.4.1",
+    "@typescript-eslint/parser": "^6.4.1",
+    "@vscode/test-electron": "^2.3.4",
+    "eslint": "^8.47.0",
+    "glob": "^10.3.3",
+    "jest": "^30.2.0",
+    "mocha": "^10.2.0",
+    "ts-jest": "^29.4.6",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.1.6",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^0.20.0",
+    "dotenv": "^17.2.3",
+    "yaml": "^2.3.1"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.1.0",
+    "utf-8-validate": "^6.0.6"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "clusterPilot",
+          "title": "Cluster Pilot",
+          "icon": "resources/k8s-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "clusterPilot": [
+        {
+          "id": "clusterPilot.clusters",
+          "name": "Clusters",
+          "visibility": "visible"
+        },
+        {
+          "id": "clusterPilot.workloads",
+          "name": "Workloads",
+          "visibility": "visible"
+        },
+        {
+          "id": "clusterPilot.config",
+          "name": "Configuration",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "clusterPilot.network",
+          "name": "Network",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "clusterPilot.storage",
+          "name": "Storage",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "clusterPilot.crds",
+          "name": "Custom Resources",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "clusterPilot.helm",
+          "name": "Helm Releases",
+          "icon": "$(package)",
+          "contextualTitle": "Helm Releases",
+          "visibility": "collapsed",
+          "when": "clusterPilot.helmInstalled"
+        },
+        {
+          "id": "clusterPilot.rbac",
+          "name": "RBAC",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "clusterPilot.jobs",
+          "name": "Jobs",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "clusterPilot.namespaces",
+          "name": "Namespaces",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "clusterPilot.nodes",
+          "name": "Nodes",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "clusterPilot.addCluster",
+        "title": "Add Cluster",
+        "category": "Cluster Pilot",
+        "icon": "$(add)"
+      },
+      {
+        "command": "clusterPilot.removeCluster",
+        "title": "Remove Cluster",
+        "category": "Cluster Pilot",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "clusterPilot.switchContext",
+        "title": "Switch Context",
+        "category": "Cluster Pilot",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "clusterPilot.refresh",
+        "title": "Refresh",
+        "category": "Cluster Pilot",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "clusterPilot.viewLogs",
+        "title": "View Logs",
+        "category": "Cluster Pilot",
+        "icon": "$(output)"
+      },
+      {
+        "command": "clusterPilot.viewYaml",
+        "title": "View YAML",
+        "category": "Cluster Pilot",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "clusterPilot.editResource",
+        "title": "Edit Resource",
+        "category": "Cluster Pilot",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "clusterPilot.deleteResource",
+        "title": "Delete Resource",
+        "category": "Cluster Pilot",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "clusterPilot.describeResource",
+        "title": "Describe Resource",
+        "category": "Cluster Pilot",
+        "icon": "$(info)"
+      },
+      {
+        "command": "clusterPilot.portForward",
+        "title": "Port Forward",
+        "category": "Cluster Pilot",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "clusterPilot.execShell",
+        "title": "Exec Shell",
+        "category": "Cluster Pilot",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "clusterPilot.scaleDeployment",
+        "title": "Scale Deployment",
+        "category": "Cluster Pilot",
+        "icon": "$(arrow-both)"
+      },
+      {
+        "command": "clusterPilot.restartDeployment",
+        "title": "Restart Deployment",
+        "category": "Cluster Pilot",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "clusterPilot.showMetrics",
+        "title": "Show Metrics",
+        "category": "Cluster Pilot",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "clusterPilot.showResourceDetails",
+        "title": "Show Resource Details",
+        "category": "Cluster Pilot",
+        "icon": "$(info)"
+      },
+      {
+        "command": "clusterPilot.showEvents",
+        "title": "Show Events",
+        "category": "Cluster Pilot",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "clusterPilot.exportResource",
+        "title": "Export Resource",
+        "category": "Cluster Pilot",
+        "icon": "$(export)"
+      },
+      {
+        "command": "clusterPilot.rollbackDeployment",
+        "title": "Rollback Deployment",
+        "category": "Cluster Pilot",
+        "icon": "$(history)"
+      },
+      {
+        "command": "clusterPilot.filterByNamespace",
+        "title": "Filter by Namespace",
+        "category": "Cluster Pilot",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "clusterPilot.startPortForward",
+        "title": "Port Forward",
+        "category": "Cluster Pilot",
+        "icon": "$(radio-tower)"
+      },
+      {
+        "command": "clusterPilot.stopPortForward",
+        "title": "Stop Port Forward",
+        "category": "Cluster Pilot",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "clusterPilot.listPortForwards",
+        "title": "List Port Forwards",
+        "category": "Cluster Pilot",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "clusterPilot.execInPod",
+        "title": "Exec into Pod",
+        "category": "Cluster Pilot",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "clusterPilot.installHelmChart",
+        "title": "Install Helm Chart",
+        "category": "Cluster Pilot",
+        "icon": "$(add)"
+      },
+      {
+        "command": "clusterPilot.uninstallHelmRelease",
+        "title": "Uninstall Release",
+        "category": "Cluster Pilot",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "clusterPilot.upgradeHelmRelease",
+        "title": "Upgrade Release",
+        "category": "Cluster Pilot",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "clusterPilot.rollbackHelmRelease",
+        "title": "Rollback Release",
+        "category": "Cluster Pilot",
+        "icon": "$(history)"
+      },
+      {
+        "command": "clusterPilot.viewHelmReleaseDetails",
+        "title": "View Release Details",
+        "category": "Cluster Pilot",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "clusterPilot.addHelmRepo",
+        "title": "Add Helm Repository",
+        "category": "Cluster Pilot",
+        "icon": "$(add)"
+      },
+      {
+        "command": "clusterPilot.removeHelmRepo",
+        "title": "Remove Repository",
+        "category": "Cluster Pilot",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "clusterPilot.updateHelmRepos",
+        "title": "Update Repositories",
+        "category": "Cluster Pilot",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "clusterPilot.viewRBACDetails",
+        "title": "View RBAC Details",
+        "category": "Cluster Pilot",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "clusterPilot.showAlerts",
+        "title": "Show Alerts",
+        "category": "Cluster Pilot",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "clusterPilot.showPVManager",
+        "title": "Show PV Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(database)"
+      },
+      {
+        "command": "clusterPilot.configureHealthThresholds",
+        "title": "Configure Health Thresholds",
+        "category": "Cluster Pilot",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "clusterPilot.showResourceTemplates",
+        "title": "Create from Template",
+        "category": "Cluster Pilot",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "clusterPilot.showJobManager",
+        "title": "Job Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "clusterPilot.deleteJob",
+        "title": "Delete Job",
+        "category": "Cluster Pilot",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "clusterPilot.triggerCronJob",
+        "title": "Trigger CronJob Now",
+        "category": "Cluster Pilot",
+        "icon": "$(play)"
+      },
+      {
+        "command": "clusterPilot.suspendCronJob",
+        "title": "Suspend CronJob",
+        "category": "Cluster Pilot",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "clusterPilot.resumeCronJob",
+        "title": "Resume CronJob",
+        "category": "Cluster Pilot",
+        "icon": "$(play)"
+      },
+      {
+        "command": "clusterPilot.showAdvancedLogs",
+        "title": "View Advanced Logs",
+        "category": "Cluster Pilot",
+        "icon": "$(output)"
+      },
+      {
+        "command": "clusterPilot.showNamespaceManager",
+        "title": "Namespace Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "clusterPilot.createNamespace",
+        "title": "Create Namespace",
+        "category": "Cluster Pilot",
+        "icon": "$(add)"
+      },
+      {
+        "command": "clusterPilot.deleteNamespace",
+        "title": "Delete Namespace",
+        "category": "Cluster Pilot",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "clusterPilot.showNodeManager",
+        "title": "Show Node Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(vm)"
+      },
+      {
+        "command": "clusterPilot.cordonNode",
+        "title": "Cordon Node",
+        "category": "Cluster Pilot",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "clusterPilot.uncordonNode",
+        "title": "Uncordon Node",
+        "category": "Cluster Pilot",
+        "icon": "$(check)"
+      },
+      {
+        "command": "clusterPilot.drainNode",
+        "title": "Drain Node",
+        "category": "Cluster Pilot",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "clusterPilot.showGlobalSearch",
+        "title": "Search Resources",
+        "category": "Cluster Pilot",
+        "icon": "$(search)"
+      },
+      {
+        "command": "clusterPilot.compareResources",
+        "title": "Compare Resources",
+        "category": "Cluster Pilot",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "clusterPilot.compareWithRevision",
+        "title": "Compare with Previous Revision",
+        "category": "Cluster Pilot",
+        "icon": "$(history)"
+      },
+      {
+        "command": "clusterPilot.compareAcrossNamespaces",
+        "title": "Compare Across Namespaces",
+        "category": "Cluster Pilot",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "clusterPilot.compareAcrossClusters",
+        "title": "Compare Across Clusters",
+        "category": "Cluster Pilot",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "clusterPilot.showMultiClusterManager",
+        "title": "Multi-Cluster Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(server-environment)"
+      },
+      {
+        "command": "clusterPilot.showCRDManager",
+        "title": "CRD Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(extensions)"
+      },
+      {
+        "command": "clusterPilot.showEventStreamViewer",
+        "title": "Event Stream Viewer",
+        "category": "Cluster Pilot",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "clusterPilot.showHelmManagerPanel",
+        "title": "Helm Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(package)"
+      },
+      {
+        "command": "clusterPilot.showPortForwardPanel",
+        "title": "Port Forward Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(radio-tower)"
+      },
+      {
+        "command": "clusterPilot.showSecurityScanningPanel",
+        "title": "Security Scanning",
+        "category": "Cluster Pilot",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "clusterPilot.editConfigMap",
+        "title": "Edit ConfigMap",
+        "category": "Cluster Pilot",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "clusterPilot.editSecret",
+        "title": "Edit Secret",
+        "category": "Cluster Pilot",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "clusterPilot.showNetworkPolicies",
+        "title": "Network Policies",
+        "category": "Cluster Pilot",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "clusterPilot.showResourceQuotas",
+        "title": "Resource Quotas & Limits",
+        "category": "Cluster Pilot",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "clusterPilot.showHPAManager",
+        "title": "HorizontalPodAutoscalers",
+        "category": "Cluster Pilot",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "clusterPilot.showRolloutManager",
+        "title": "Manage Rollout",
+        "category": "Cluster Pilot",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "clusterPilot.showIngressManager",
+        "title": "Ingress & Certificates",
+        "category": "Cluster Pilot",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "clusterPilot.showStatefulSetManager",
+        "title": "StatefulSet Management",
+        "category": "Cluster Pilot",
+        "icon": "$(database)"
+      },
+      {
+        "command": "clusterPilot.showServiceManager",
+        "title": "Service Management",
+        "category": "Cluster Pilot",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "clusterPilot.showDaemonSetManager",
+        "title": "DaemonSet Management",
+        "category": "Cluster Pilot",
+        "icon": "$(layers)"
+      },
+      {
+        "command": "clusterPilot.showPDBManager",
+        "title": "Pod Disruption Budget Management",
+        "category": "Cluster Pilot",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "clusterPilot.showResourceUsageDashboard",
+        "title": "Resource Usage Dashboard",
+        "category": "Cluster Pilot",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "clusterPilot.showCapacityPlanningPanel",
+        "title": "Cluster Capacity Planning",
+        "category": "Cluster Pilot",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "clusterPilot.showCostEstimationPanel",
+        "title": "Cost Estimation",
+        "category": "Cluster Pilot",
+        "icon": "$(pie-chart)"
+      },
+      {
+        "command": "clusterPilot.openKubectlTerminal",
+        "title": "Open kubectl Terminal",
+        "category": "Cluster Pilot",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "clusterPilot.openNamespaceTerminal",
+        "title": "Open Namespace Terminal",
+        "category": "Cluster Pilot",
+        "icon": "$(terminal)"
+      },
+      {
+        "command": "clusterPilot.showKubectlQuickCommands",
+        "title": "kubectl Quick Commands",
+        "category": "Cluster Pilot",
+        "icon": "$(symbol-keyword)"
+      },
+      {
+        "command": "clusterPilot.createResourceFromTemplate",
+        "title": "Create Resource from Template",
+        "category": "Cluster Pilot",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "clusterPilot.applyYamlToCluster",
+        "title": "Apply YAML to Cluster",
+        "category": "Cluster Pilot",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "clusterPilot.dryRunYaml",
+        "title": "Dry Run YAML (Validate)",
+        "category": "Cluster Pilot",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "clusterPilot.editResourceWithValidation",
+        "title": "Edit Resource with Validation",
+        "category": "Cluster Pilot",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "clusterPilot.showBackupPanel",
+        "title": "Backup & Restore Manager",
+        "category": "Cluster Pilot",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "clusterPilot.createBackup",
+        "title": "Create Backup",
+        "category": "Cluster Pilot",
+        "icon": "$(save)"
+      },
+      {
+        "command": "clusterPilot.restoreBackup",
+        "title": "Restore Backup",
+        "category": "Cluster Pilot",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "clusterPilot.showAuditLogViewer",
+        "title": "View Audit Logs",
+        "category": "Cluster Pilot",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "clusterPilot.filterTreeView",
+        "title": "Filter Tree View",
+        "category": "Cluster Pilot",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "clusterPilot.clearTreeFilter",
+        "title": "Clear Tree Filter",
+        "category": "Cluster Pilot",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "clusterPilot.toggleProgressiveLoading",
+        "title": "Toggle Progressive Loading",
+        "category": "Cluster Pilot",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "clusterPilot.enableWatch",
+        "title": "Enable Real-time Watch",
+        "category": "Cluster Pilot",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "clusterPilot.disableWatch",
+        "title": "Disable Real-time Watch",
+        "category": "Cluster Pilot",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "clusterPilot.enableClusterMetrics",
+        "title": "Enable Cluster Metrics",
+        "category": "Cluster Pilot",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "clusterPilot.disableClusterMetrics",
+        "title": "Disable Cluster Metrics",
+        "category": "Cluster Pilot",
+        "icon": "$(graph-line)"
+      },
+      {
+        "command": "clusterPilot.loadMore",
+        "title": "Load More Items",
+        "category": "Cluster Pilot",
+        "icon": "$(chevron-down)"
+      },
+      {
+        "command": "clusterPilot.showPolicyEnforcement",
+        "title": "Policy Enforcement (OPA/Gatekeeper)",
+        "category": "Cluster Pilot",
+        "icon": "$(shield)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "clusterPilot.openKubectlTerminal",
+        "key": "ctrl+shift+k",
+        "mac": "cmd+shift+k",
+        "when": "!terminalFocus"
+      },
+      {
+        "command": "clusterPilot.showKubectlQuickCommands",
+        "key": "ctrl+shift+alt+k",
+        "mac": "cmd+shift+alt+k"
+      },
+      {
+        "command": "clusterPilot.createResourceFromTemplate",
+        "key": "ctrl+shift+n",
+        "mac": "cmd+shift+n",
+        "when": "editorLangId == yaml"
+      },
+      {
+        "command": "clusterPilot.applyYamlToCluster",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "editorLangId == yaml"
+      },
+      {
+        "command": "clusterPilot.dryRunYaml",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "editorLangId == yaml"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "clusterPilot.addCluster",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.refresh",
+          "when": "view =~ /^clusterPilot\\./",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.filterByNamespace",
+          "when": "view == clusterPilot.workloads || view == clusterPilot.config || view == clusterPilot.network || view == clusterPilot.storage",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.installHelmChart",
+          "when": "view == clusterPilot.helm",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.addHelmRepo",
+          "when": "view == clusterPilot.helm",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.updateHelmRepos",
+          "when": "view == clusterPilot.helm",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showAlerts",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showBackupPanel",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showPVManager",
+          "when": "view == clusterPilot.storage",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showResourceTemplates",
+          "when": "view =~ /^clusterPilot\\./",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showJobManager",
+          "when": "view == clusterPilot.jobs",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.createNamespace",
+          "when": "view == clusterPilot.namespaces",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showNamespaceManager",
+          "when": "view == clusterPilot.namespaces",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showNodeManager",
+          "when": "view == clusterPilot.nodes",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showGlobalSearch",
+          "when": "view =~ /^clusterPilot\\./",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showNetworkPolicies",
+          "when": "view == clusterPilot.network",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showResourceQuotas",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showHPAManager",
+          "when": "view == clusterPilot.workloads",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showIngressManager",
+          "when": "view == clusterPilot.network",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showStatefulSetManager",
+          "when": "view == clusterPilot.workloads",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showServiceManager",
+          "when": "view == clusterPilot.network",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showDaemonSetManager",
+          "when": "view == clusterPilot.workloads",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showPDBManager",
+          "when": "view == clusterPilot.workloads",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showResourceUsageDashboard",
+          "when": "view == clusterPilot.nodes",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showCapacityPlanningPanel",
+          "when": "view == clusterPilot.nodes",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showCostEstimationPanel",
+          "when": "view == clusterPilot.nodes",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.viewRBACDetails",
+          "when": "view == clusterPilot.rbac",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showMultiClusterManager",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showCRDManager",
+          "when": "view == clusterPilot.crds",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showEventStreamViewer",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showHelmManagerPanel",
+          "when": "view == clusterPilot.helm",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showPortForwardPanel",
+          "when": "view == clusterPilot.network",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showSecurityScanningPanel",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showAuditLogViewer",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.showPolicyEnforcement",
+          "when": "view == clusterPilot.clusters",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.compareResources",
+          "when": "view =~ /^clusterPilot\\./",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.filterTreeView",
+          "when": "view == clusterPilot.workloads || view == clusterPilot.config || view == clusterPilot.network || view == clusterPilot.storage || view == clusterPilot.namespaces || view == clusterPilot.nodes",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.enableWatch",
+          "when": "view == clusterPilot.namespaces || view == clusterPilot.nodes",
+          "group": "1_watch"
+        },
+        {
+          "command": "clusterPilot.disableWatch",
+          "when": "view == clusterPilot.namespaces || view == clusterPilot.nodes",
+          "group": "1_watch"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "clusterPilot.showResourceDetails",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource/",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.viewYaml",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource/",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "clusterPilot.editResource",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource/",
+          "group": "1_actions@2"
+        },
+        {
+          "command": "clusterPilot.editResourceWithValidation",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource/",
+          "group": "1_actions@2.5"
+        },
+        {
+          "command": "clusterPilot.describeResource",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource/",
+          "group": "1_actions@3"
+        },
+        {
+          "command": "clusterPilot.viewLogs",
+          "when": "viewItem == pod",
+          "group": "2_pod@1"
+        },
+        {
+          "command": "clusterPilot.execShell",
+          "when": "viewItem == pod",
+          "group": "2_pod@2"
+        },
+        {
+          "command": "clusterPilot.openNamespaceTerminal",
+          "when": "viewItem == namespace || viewItem == pod",
+          "group": "2_pod@4"
+        },
+        {
+          "command": "clusterPilot.execInPod",
+          "when": "viewItem == pod",
+          "group": "2_pod@3"
+        },
+        {
+          "command": "clusterPilot.startPortForward",
+          "when": "viewItem == pod || viewItem == service",
+          "group": "2_network@1"
+        },
+        {
+          "command": "clusterPilot.scaleDeployment",
+          "when": "viewItem == deployment",
+          "group": "3_deployment@1"
+        },
+        {
+          "command": "clusterPilot.showRolloutManager",
+          "when": "viewItem == deployment",
+          "group": "3_deployment@2"
+        },
+        {
+          "command": "clusterPilot.restartDeployment",
+          "when": "viewItem == deployment",
+          "group": "3_deployment@3"
+        },
+        {
+          "command": "clusterPilot.enableClusterMetrics",
+          "when": "viewItem == context",
+          "group": "4_metrics@1"
+        },
+        {
+          "command": "clusterPilot.disableClusterMetrics",
+          "when": "viewItem == context",
+          "group": "4_metrics@2"
+        },
+        {
+          "command": "clusterPilot.showEvents",
+          "when": "viewItem == context || viewItem == namespace",
+          "group": "5_monitoring@1"
+        },
+        {
+          "command": "clusterPilot.exportResource",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource/",
+          "group": "1_actions@4"
+        },
+        {
+          "command": "clusterPilot.rollbackDeployment",
+          "when": "viewItem == deployment",
+          "group": "3_deployment@2"
+        },
+        {
+          "command": "clusterPilot.showResourceDetails",
+          "when": "viewItem == crd || viewItem == customresource",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.exportResource",
+          "when": "viewItem == crd || viewItem == customresource",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "clusterPilot.deleteResource",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource/",
+          "group": "9_delete@1"
+        },
+        {
+          "command": "clusterPilot.viewHelmReleaseDetails",
+          "when": "viewItem == release",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.upgradeHelmRelease",
+          "when": "viewItem == release",
+          "group": "1_manage@1"
+        },
+        {
+          "command": "clusterPilot.rollbackHelmRelease",
+          "when": "viewItem == release",
+          "group": "1_manage@2"
+        },
+        {
+          "command": "clusterPilot.uninstallHelmRelease",
+          "when": "viewItem == release",
+          "group": "2_delete@1"
+        },
+        {
+          "command": "clusterPilot.removeHelmRepo",
+          "when": "viewItem == repo",
+          "group": "2_delete@1"
+        },
+        {
+          "command": "clusterPilot.viewRBACDetails",
+          "when": "viewItem == role || viewItem == clusterrole || viewItem == rolebinding || viewItem == clusterrolebinding || viewItem == serviceaccount",
+          "group": "navigation"
+        },
+        {
+          "command": "clusterPilot.deleteJob",
+          "when": "viewItem == job",
+          "group": "2_delete@1"
+        },
+        {
+          "command": "clusterPilot.triggerCronJob",
+          "when": "viewItem == cronjob",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "clusterPilot.suspendCronJob",
+          "when": "viewItem == cronjob",
+          "group": "1_actions@2"
+        },
+        {
+          "command": "clusterPilot.resumeCronJob",
+          "when": "viewItem == cronjob",
+          "group": "1_actions@3"
+        },
+        {
+          "command": "clusterPilot.showAdvancedLogs",
+          "when": "viewItem == pod",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "clusterPilot.deleteNamespace",
+          "when": "viewItem == namespace",
+          "group": "2_delete@1"
+        },
+        {
+          "command": "clusterPilot.cordonNode",
+          "when": "viewItem == node",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "clusterPilot.uncordonNode",
+          "when": "viewItem == node",
+          "group": "1_actions@2"
+        },
+        {
+          "command": "clusterPilot.drainNode",
+          "when": "viewItem == node",
+          "group": "2_dangerous@1"
+        },
+        {
+          "command": "clusterPilot.editConfigMap",
+          "when": "viewItem =~ /configmap/",
+          "group": "1_actions@3"
+        },
+        {
+          "command": "clusterPilot.editSecret",
+          "when": "viewItem =~ /secret/",
+          "group": "1_actions@3"
+        },
+        {
+          "command": "clusterPilot.compareAcrossNamespaces",
+          "when": "view == clusterPilot.clusters && viewItem == namespace",
+          "group": "9_cluster_compare@1"
+        },
+        {
+          "command": "clusterPilot.compareAcrossClusters",
+          "when": "view == clusterPilot.clusters && viewItem == namespace",
+          "group": "9_cluster_compare@2"
+        },
+        {
+          "command": "clusterPilot.compareResources",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource|deployment|statefulset|daemonset|service|configmap|secret|pod|job/",
+          "group": "6_compare@1"
+        },
+        {
+          "command": "clusterPilot.compareWithRevision",
+          "when": "viewItem == deployment || viewItem == statefulset || viewItem == daemonset",
+          "group": "6_compare@2"
+        },
+        {
+          "command": "clusterPilot.compareAcrossNamespaces",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource|deployment|statefulset|daemonset|service|configmap|secret|pod/",
+          "group": "6_compare@3"
+        },
+        {
+          "command": "clusterPilot.compareAcrossClusters",
+          "when": "view =~ /^clusterPilot\\./ && viewItem =~ /resource|deployment|statefulset|daemonset|service|configmap|secret|pod/",
+          "group": "6_compare@4"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "clusterPilot.applyYamlToCluster",
+          "when": "editorLangId == yaml",
+          "group": "kubernetes@1"
+        },
+        {
+          "command": "clusterPilot.dryRunYaml",
+          "when": "editorLangId == yaml",
+          "group": "kubernetes@2"
+        },
+        {
+          "command": "clusterPilot.createResourceFromTemplate",
+          "when": "editorLangId == yaml",
+          "group": "kubernetes@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "clusterPilot.openKubectlTerminal",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.openNamespaceTerminal",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showKubectlQuickCommands",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.createResourceFromTemplate",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.applyYamlToCluster",
+          "when": "editorLangId == yaml"
+        },
+        {
+          "command": "clusterPilot.dryRunYaml",
+          "when": "editorLangId == yaml"
+        },
+        {
+          "command": "clusterPilot.editResourceWithValidation",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showBackupPanel",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.createBackup",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.restoreBackup",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showAuditLogViewer",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showPolicyEnforcement",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showMultiClusterManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showCRDManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showEventStreamViewer",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showHelmManagerPanel",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showPortForwardPanel",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showSecurityScanningPanel",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showGlobalSearch",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showMetrics",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showAlerts",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showPVManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showJobManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showNamespaceManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showNodeManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showNetworkPolicies",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showResourceQuotas",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showHPAManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showIngressManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showStatefulSetManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showServiceManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showDaemonSetManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showPDBManager",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showResourceUsageDashboard",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showCapacityPlanningPanel",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.showCostEstimationPanel",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.compareResources",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.switchContext",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.addCluster",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.refresh",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.configureHealthThresholds",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.listPortForwards",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.filterTreeView",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.clearTreeFilter",
+          "when": "true"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Cluster Pilot",
+      "properties": {
+        "clusterPilot.kubeconfigPath": {
+          "type": "string",
+          "default": "~/.kube/config",
+          "description": "Path to your kubeconfig file"
+        },
+        "clusterPilot.refreshInterval": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 0,
+          "description": "Auto-refresh interval in milliseconds (0 to disable)"
+        },
+        "clusterPilot.enableMetrics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable metrics collection (requires metrics-server)"
+        },
+        "clusterPilot.logLines": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 100,
+          "maximum": 10000,
+          "description": "Number of log lines to fetch"
+        },
+        "clusterPilot.theme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "default": "auto",
+          "description": "Theme for webviews"
+        },
+        "clusterPilot.health.cpuWarning": {
+          "type": "number",
+          "default": 70,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "CPU usage warning threshold (percentage)"
+        },
+        "clusterPilot.health.cpuCritical": {
+          "type": "number",
+          "default": 90,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "CPU usage critical threshold (percentage)"
+        },
+        "clusterPilot.health.memoryWarning": {
+          "type": "number",
+          "default": 80,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Memory usage warning threshold (percentage)"
+        },
+        "clusterPilot.health.memoryCritical": {
+          "type": "number",
+          "default": 95,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Memory usage critical threshold (percentage)"
+        },
+        "clusterPilot.health.restartWarning": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "description": "Pod restart warning threshold"
+        },
+        "clusterPilot.health.restartCritical": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "description": "Pod restart critical threshold"
+        },
+        "clusterPilot.backupDirectory": {
+          "type": "string",
+          "default": "~/.jas-cluster-pilot/backups",
+          "description": "Directory to store cluster backups"
+        },
+        "clusterPilot.enableVerboseLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose debug logging to output channel"
+        },
+        "clusterPilot.bypassProxyForLocalConnections": {
+          "type": "boolean",
+          "default": true,
+          "description": "Bypass corporate proxy for local Kubernetes connections (localhost, Docker Desktop)"
+        },
+        "clusterPilot.debounceMs": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "Debounce delay in milliseconds for tree refresh operations (0-5000ms, default: 300ms)"
+        },
+        "clusterPilot.progressiveLoadingPageSize": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Number of items to load per page in tree views (10-1000, default: 100)"
+        },
+        "clusterPilot.enableTelemetry": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable telemetry for cache hit rates and performance metrics"
+        }
+      }
+    }
+  }
+}

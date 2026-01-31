@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cluster Metrics</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            padding: 20px;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-foreground);
+        }
+        
+        h1 {
+            color: var(--vscode-foreground);
+            margin-bottom: 24px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .metric-card {
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            padding: 16px;
+        }
+        
+        .metric-card h2 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: var(--vscode-foreground);
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+        
+        .chart-container {
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 4px;
+            padding: 16px;
+            margin-top: 16px;
+            height: 300px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-running {
+            background-color: #4caf50;
+        }
+        
+        .status-warning {
+            background-color: #ff9800;
+        }
+        
+        .status-error {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cluster Metrics Dashboard</h1>
+    
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <h2><span class="status-indicator status-running"></span>Cluster Status</h2>
+            <div class="metric-value">Running</div>
+            <div class="metric-label">All nodes operational</div>
+        </div>
+        
+        <div class="metric-card">
+            <h2>Total Pods</h2>
+            <div class="metric-value" id="totalPods">-</div>
+            <div class="metric-label">Running across all namespaces</div>
+        </div>
+        
+        <div class="metric-card">
+            <h2>Total Nodes</h2>
+            <div class="metric-value" id="totalNodes">-</div>
+            <div class="metric-label">Active cluster nodes</div>
+        </div>
+        
+        <div class="metric-card">
+            <h2>Namespaces</h2>
+            <div class="metric-value" id="totalNamespaces">-</div>
+            <div class="metric-label">Active namespaces</div>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <h2>CPU Usage Over Time</h2>
+        <p style="color: var(--vscode-descriptionForeground); margin-top: 80px; text-align: center;">
+            Metrics visualization requires metrics-server to be installed in your cluster.
+        </p>
+    </div>
+    
+    <div class="chart-container">
+        <h2>Memory Usage Over Time</h2>
+        <p style="color: var(--vscode-descriptionForeground); margin-top: 80px; text-align: center;">
+            Metrics visualization requires metrics-server to be installed in your cluster.
+        </p>
+    </div>
+
+    <script>
+        // Placeholder for future metrics implementation
+        const vscode = acquireVsCodeApi();
+        
+        // Request metrics data from extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+            switch (message.type) {
+                case 'updateMetrics':
+                    updateMetrics(message.data);
+                    break;
+            }
+        });
+        
+        function updateMetrics(data) {
+            if (data.totalPods) {
+                document.getElementById('totalPods').textContent = data.totalPods;
+            }
+            if (data.totalNodes) {
+                document.getElementById('totalNodes').textContent = data.totalNodes;
+            }
+            if (data.totalNamespaces) {
+                document.getElementById('totalNamespaces').textContent = data.totalNamespaces;
+            }
+        }
+        
+        // Request initial data
+        vscode.postMessage({ type: 'requestMetrics' });
+    </script>
+</body>
+</html>
