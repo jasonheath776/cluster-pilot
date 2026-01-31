@@ -1,10 +1,21 @@
 # Cluster Pilot
 
-A Kubernetes management extension for Visual Studio Code, inspired by Kubernetes Lens.
+A comprehensive Kubernetes management extension for Visual Studio Code, providing an intuitive interface for cluster operations, resource management, and monitoring.
 
 > **Version**: 0.1.0 (Early Release/Beta)  
 > **Status**: Actively developed - suitable for development/testing on non-critical clusters  
-> **Support**: Community-driven; report issues on [GitHub](https://github.com/yourusername/cluster-pilot/issues)
+> **Support**: Community-driven; report issues on [GitHub](https://github.com/jasonheath776/cluster-pilot/issues)
+
+## ⚠️ Disclaimer
+
+**This extension is provided "as-is" without warranties of any kind.** While thoroughly tested, users should:
+- Test thoroughly in non-production environments first
+- Maintain regular backups of critical cluster configurations
+- Verify all operations before applying to production clusters
+- Use caution with delete operations (they are immediate and irreversible)
+- Monitor cluster health independently
+
+The developers are not liable for any data loss, cluster downtime, or other issues arising from use of this extension.
 
 ## ⚠️ Beta Release Information
 
@@ -36,28 +47,59 @@ This is an **early release** (v0.1.0) with core Kubernetes functionality. While 
 
 ## Features
 
-- **Multi-Cluster Management**: Connect and manage multiple Kubernetes clusters
-- **Resource Browser**: View and manage pods, deployments, services, and more
-- **Live Logs**: Stream pod logs in real-time
-- **Resource Editor**: Edit Kubernetes resources with YAML support and validation
-- **Port Forwarding**: Forward ports from pods and services to localhost
-- **Shell Access**: Execute commands directly in containers
-- **Metrics Dashboard**: View cluster health and resource usage
-- **CRD Manager**: Manage Custom Resource Definitions and their instances
-- **Event Stream Viewer**: Real-time Kubernetes event monitoring with live streaming
-- **Helm Manager**: Complete Helm release management with visual dashboard
-- **Port Forward Manager**: Visual port forwarding management and monitoring
-- **kubectl Terminal**: Integrated kubectl terminal with context awareness
-- **YAML Editor with Validation**: Create and edit resources with real-time validation
-- **Backup & Restore**: Complete cluster state backup and restoration capabilities
-- **Audit Log Viewer**: Kubernetes audit log streaming and compliance analysis (Enterprise)
-- **Policy Enforcement**: OPA/Gatekeeper admission control policy management (Enterprise)
+### Core Functionality
+
+#### Multi-Cluster Management
+- Connect and manage multiple Kubernetes clusters simultaneously
+- Switch contexts seamlessly from the sidebar
+- Automatic cluster detection from `~/.kube/config`
+- Support for custom kubeconfig paths
+
+#### Resource Management
+- **Workloads**: Pods, Deployments, StatefulSets, DaemonSets, Jobs, CronJobs, ReplicaSets
+- **Configuration**: ConfigMaps, Secrets, ServiceAccounts
+- **Network**: Services, Ingresses, Endpoints, NetworkPolicies
+- **Storage**: PersistentVolumes, PersistentVolumeClaims, StorageClasses
+- **RBAC**: Roles, ClusterRoles, RoleBindings, ClusterRoleBindings
+- **Cluster**: Nodes, Namespaces, Events, ResourceQuotas, LimitRanges
+- **Custom Resources**: Full CRD support with instance management
+
+#### Live Operations
+- **Real-time Logs**: Stream pod logs with container selection and tail options
+- **Shell Access**: Execute commands directly in running containers
+- **Port Forwarding**: Forward ports from pods/services to localhost with visual management
+- **Resource Metrics**: Live CPU and memory usage (requires metrics-server)
+- **Event Streaming**: Real-time Kubernetes event monitoring with filtering
+
+#### Advanced Features
+- **Helm Manager**: Complete Helm release lifecycle management
+  - **⚠️ Requires**: Helm CLI installed and accessible in PATH
+  - View, install, upgrade, rollback, and uninstall releases
+  - Repository management
+  - Visual dashboard with statistics
+- **Security Scanning**: Comprehensive vulnerability analysis with Trivy integration
+- **Backup & Restore**: Full cluster state backup and restoration capabilities
+- **YAML Editor**: Create and edit resources with real-time validation
+- **kubectl Terminal**: Integrated terminal with context awareness and quick commands
+- **CRD Manager**: Visual Custom Resource Definition management
+- **Policy Enforcement**: OPA/Gatekeeper admission control (Enterprise)
+- **Audit Log Viewer**: Kubernetes audit log streaming (Enterprise)
+
+#### Developer-Friendly
+- YAML validation and syntax highlighting
+- Resource templates for quick creation
+- Inline diagnostics and error highlighting
+- Dry-run validation before applying changes
+- Export resources to YAML/JSON
 
 ## Requirements
 
 - Visual Studio Code 1.80.0 or higher
 - kubectl installed and configured
 - Access to a Kubernetes cluster
+- **Optional**: Helm CLI (required for Helm Manager panel)
+- **Optional**: Trivy (required for image vulnerability scanning)
+- **Optional**: metrics-server (required for resource metrics)
 
 ## Getting Started
 
@@ -174,6 +216,9 @@ Monitor Kubernetes events in real-time:
 
 Comprehensive Helm release management:
 - Navigate to **View → Command Palette** → `Cluster Pilot: Helm Manager`
+- **⚠️ Requirement**: Helm CLI must be installed and accessible in your system PATH
+  - Install Helm: https://helm.sh/docs/intro/install/
+  - Verify installation: Run `helm version` in your terminal
 - View all Helm releases with statistics:
   - Total, deployed, failed, and pending releases
   - Namespace distribution
