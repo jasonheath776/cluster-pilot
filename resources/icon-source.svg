@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="propellerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E5C8A;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="centerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F39C12;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E67E22;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="62" fill="#1E3A5F" stroke="#4A90E2" stroke-width="2"/>
+  
+  <!-- Propeller blades (4 blades in cross pattern) -->
+  <!-- Blade 1 (top) -->
+  <ellipse cx="64" cy="28" rx="12" ry="24" fill="url(#propellerGradient)" opacity="0.9">
+    <animateTransform attributeName="transform" type="rotate" from="0 64 64" to="360 64 64" dur="2s" repeatCount="indefinite"/>
+  </ellipse>
+  
+  <!-- Blade 2 (right) -->
+  <ellipse cx="100" cy="64" rx="24" ry="12" fill="url(#propellerGradient)" opacity="0.9">
+    <animateTransform attributeName="transform" type="rotate" from="0 64 64" to="360 64 64" dur="2s" repeatCount="indefinite"/>
+  </ellipse>
+  
+  <!-- Blade 3 (bottom) -->
+  <ellipse cx="64" cy="100" rx="12" ry="24" fill="url(#propellerGradient)" opacity="0.9">
+    <animateTransform attributeName="transform" type="rotate" from="0 64 64" to="360 64 64" dur="2s" repeatCount="indefinite"/>
+  </ellipse>
+  
+  <!-- Blade 4 (left) -->
+  <ellipse cx="28" cy="64" rx="24" ry="12" fill="url(#propellerGradient)" opacity="0.9">
+    <animateTransform attributeName="transform" type="rotate" from="0 64 64" to="360 64 64" dur="2s" repeatCount="indefinite"/>
+  </ellipse>
+  
+  <!-- Center hub -->
+  <circle cx="64" cy="64" r="16" fill="url(#centerGradient)" stroke="#2C3E50" stroke-width="2"/>
+  <circle cx="64" cy="64" r="8" fill="#34495E" opacity="0.8"/>
+  
+  <!-- Kubernetes reference - small hexagon in center -->
+  <polygon points="64,58 67,60 67,64 64,66 61,64 61,60" fill="#4A90E2" opacity="0.6"/>
+</svg>

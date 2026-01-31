@@ -13,6 +13,7 @@
   },
   "homepage": "https://github.com/jasonheath776/cluster-pilot#readme",
   "license": "MIT",
+  "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.80.0"
   },
