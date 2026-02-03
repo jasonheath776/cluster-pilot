@@ -41,6 +41,28 @@ export class BackupRestoreManager {
                 configuredPath = path.join(os.homedir(), configuredPath.slice(1));
             }
             configuredPath = path.resolve(configuredPath);
+            
+            // Validate path is not in protected system directories
+            const normalizedPath = configuredPath.toLowerCase().replace(/\\/g, '/');
+            const protectedPaths = [
+                'c:/program files',
+                'c:/windows',
+                'c:/program files (x86)'
+            ];
+            
+            if (protectedPaths.some(p => normalizedPath.includes(p))) {
+                console.warn(`Configured backup directory is in a protected location: ${configuredPath}. Using default instead.`);
+                configuredPath = path.join(os.homedir(), '.jas-cluster-pilot', 'backups');
+                
+                vscode.window.showWarningMessage(
+                    `Backup directory cannot be in a protected system folder. Using default location: ${configuredPath}`,
+                    'Open Settings'
+                ).then(selection => {
+                    if (selection === 'Open Settings') {
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'clusterPilot.backupDirectory');
+                    }
+                });
+            }
         }
         this.backupDir = configuredPath;
         
