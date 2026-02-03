@@ -1,0 +1,4 @@
+{
+  "displayName": "Cluster Pilot",
+  "description": "Kubernetes Lens-style cluster management for VS Code"
+}
