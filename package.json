@@ -19,7 +19,8 @@
   },
   "categories": [
     "Other",
-    "Visualization"
+    "Visualization",
+    "DevOps"
   ],
   "keywords": [
     "kubernetes",
@@ -30,15 +31,6 @@
     "devops"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": [
-    "onView:clusterPilot.clusters",
-    "onView:clusterPilot.workloads",
-    "onView:clusterPilot.config",
-    "onView:clusterPilot.network",
-    "onView:clusterPilot.storage",
-    "onCommand:clusterPilot.openKubectlTerminal",
-    "onStartupFinished"
-  ],
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
@@ -1021,6 +1013,11 @@
           "group": "4_metrics@2"
         },
         {
+          "command": "clusterPilot.removeCluster",
+          "when": "viewItem == context",
+          "group": "9_delete@1"
+        },
+        {
           "command": "clusterPilot.showEvents",
           "when": "viewItem == context || viewItem == namespace",
           "group": "5_monitoring@1"
@@ -1358,6 +1355,26 @@
         },
         {
           "command": "clusterPilot.clearTreeFilter",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.removeCluster",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.portForward",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.stopPortForward",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.toggleProgressiveLoading",
+          "when": "true"
+        },
+        {
+          "command": "clusterPilot.loadMore",
           "when": "true"
         }
       ]

@@ -6,17 +6,6 @@ A comprehensive Kubernetes management extension for Visual Studio Code, providin
 > **Status**: Actively developed - suitable for development/testing on non-critical clusters  
 > **Support**: Community-driven; report issues on [GitHub](https://github.com/jasonheath776/cluster-pilot/issues)
 
-## ⚠️ Disclaimer
-
-**This extension is provided "as-is" without warranties of any kind.** While thoroughly tested, users should:
-- Test thoroughly in non-production environments first
-- Maintain regular backups of critical cluster configurations
-- Verify all operations before applying to production clusters
-- Use caution with delete operations (they are immediate and irreversible)
-- Monitor cluster health independently
-
-The developers are not liable for any data loss, cluster downtime, or other issues arising from use of this extension.
-
 ## ⚠️ Beta Release Information
 
 This is an **early release** (v0.1.0) with core Kubernetes functionality. While tested and stable, it is not yet recommended for production use on critical clusters.
@@ -433,6 +422,17 @@ When reporting bugs, please include:
 - Which feature failed
 - Error message from "Cluster Pilot: Show Logs" command
 - Steps to reproduce
+
+## ⚠️ Disclaimer
+
+**This extension is provided "as-is" without warranties of any kind.** While thoroughly tested, users should:
+- Test thoroughly in non-production environments first
+- Maintain regular backups of critical cluster configurations
+- Verify all operations before applying to production clusters
+- Use caution with delete operations (they are immediate and irreversible)
+- Monitor cluster health independently
+
+The developers are not liable for any data loss, cluster downtime, or other issues arising from use of this extension.
 
 ## License
 
