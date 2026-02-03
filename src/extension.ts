@@ -30,164 +30,212 @@ let k8sClient: K8sClient;
 let kubeconfigManager: KubeconfigManager;
 
 export async function activate(context: vscode.ExtensionContext) {
-    // Initialize logger
+    // Initialize logger first - this should always work
     logger.updateConfiguration();
     logger.info('Cluster Pilot extension activating...');
     
-    // Configure proxy bypass for local Kubernetes connections only
-    const proxyConfig = vscode.workspace.getConfiguration('clusterPilot');
-    const bypassProxyForLocal = proxyConfig.get<boolean>('bypassProxyForLocalConnections', true);
-    
-    if (bypassProxyForLocal) {
-        // Only bypass proxy for known local hosts (not globally)
-        bypassProxyForLocalHosts();
-        logger.debug('Configured proxy bypass for local Kubernetes connections');
-    }
-    
-    // Load .env file for environment-specific configuration
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (workspaceRoot) {
-        const envPath = path.join(workspaceRoot, '.env');
-        dotenv.config({ path: envPath });
-        logger.debug('Loaded .env configuration from:', envPath);
-    }
-
-    // Initialize managers
-    kubeconfigManager = new KubeconfigManager();
-    k8sClient = new K8sClient(kubeconfigManager);
-    const portForwardManager = new PortForwardManager(kubeconfigManager.getKubeConfig());
-    const terminalManager = new TerminalManager(kubeconfigManager.getKubeConfig());
-    const helmManager = new HelmManager();
-    const alertManager = new AlertManager(context);
-    const healthMonitor = new HealthMonitor(context);
-    const kubectlTerminal = new KubectlTerminal(kubeconfigManager.getKubeConfig());
-    const backupRestoreManager = new BackupRestoreManager(kubeconfigManager.getKubeConfig());
-    const yamlEditor = new YAMLEditor(kubeconfigManager.getKubeConfig());
-    const auditLogViewer = new AuditLogViewer(kubeconfigManager.getKubeConfig());
-    const policyEnforcementManager = new PolicyEnforcementManager(kubeconfigManager.getKubeConfig());
-
-    // Test connection
-    setTimeout(async () => {
-        logger.debug('Testing Kubernetes API connection...');
-        try {
-            const namespaces = await k8sClient.getNamespaces();
-            logger.info(`Connection test: Found ${namespaces.length} namespaces`);
-            const pods = await k8sClient.getPods();
-            logger.debug(`Connection test: Found ${pods.length} pods`);
-        } catch (error) {
-            logger.error('Connection test failed', error);
-            vscode.window.showWarningMessage('Could not connect to Kubernetes cluster. Please check your kubeconfig.');
-        }
-    }, 2000);
-
-    // Initialize providers
-    const clusterProvider = new ClusterProvider(kubeconfigManager, k8sClient, context);
-    const workloadsProvider = new ResourceProvider(k8sClient, 'workloads');
-    const configProvider = new ResourceProvider(k8sClient, 'config');
-    const networkProvider = new ResourceProvider(k8sClient, 'network');
-    const storageProvider = new ResourceProvider(k8sClient, 'storage');
-    const crdProvider = new CRDProvider(k8sClient);
-    const rbacProvider = new RBACProvider(k8sClient);
-    const jobProvider = new JobProvider(k8sClient);
-    const namespaceProvider = new NamespaceProvider(k8sClient);
-    const nodeProvider = new NodeProvider(k8sClient);
-
-    // Check if Helm is installed
-    const helmInstalled = await helmManager.checkHelmInstalled();
+    // Declare local variables with definite assignment assertions
+    let portForwardManager!: PortForwardManager;
+    let terminalManager!: TerminalManager;
+    let helmManager!: HelmManager;
+    let alertManager!: AlertManager;
+    let healthMonitor!: HealthMonitor;
+    let kubectlTerminal!: KubectlTerminal;
+    let backupRestoreManager!: BackupRestoreManager;
+    let yamlEditor!: YAMLEditor;
+    let auditLogViewer!: AuditLogViewer;
+    let policyEnforcementManager!: PolicyEnforcementManager;
+    let clusterProvider!: ClusterProvider;
+    let workloadsProvider!: ResourceProvider;
+    let configProvider!: ResourceProvider;
+    let networkProvider!: ResourceProvider;
+    let storageProvider!: ResourceProvider;
+    let crdProvider!: CRDProvider;
+    let rbacProvider!: RBACProvider;
+    let jobProvider!: JobProvider;
+    let namespaceProvider!: NamespaceProvider;
+    let nodeProvider!: NodeProvider;
     let helmProvider: HelmProvider | undefined;
     
-    if (helmInstalled) {
-        helmProvider = new HelmProvider(helmManager);
-        logger.info('Helm is installed - Helm view enabled');
-        // Set context for conditional view visibility
-        vscode.commands.executeCommand('setContext', 'clusterPilot.helmInstalled', true);
-    } else {
-        logger.warn('Helm is not installed - Helm view disabled');
-        vscode.commands.executeCommand('setContext', 'clusterPilot.helmInstalled', false);
+    try {
+        // Configure proxy bypass for local Kubernetes connections only
+        const proxyConfig = vscode.workspace.getConfiguration('clusterPilot');
+        const bypassProxyForLocal = proxyConfig.get<boolean>('bypassProxyForLocalConnections', true);
+        
+        if (bypassProxyForLocal) {
+            // Only bypass proxy for known local hosts (not globally)
+            bypassProxyForLocalHosts();
+            logger.debug('Configured proxy bypass for local Kubernetes connections');
+        }
+        
+        // Load .env file for environment-specific configuration
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspaceRoot) {
+            const envPath = path.join(workspaceRoot, '.env');
+            dotenv.config({ path: envPath });
+            logger.debug('Loaded .env configuration from:', envPath);
+        }
+
+        // Initialize managers
+        kubeconfigManager = new KubeconfigManager();
+        k8sClient = new K8sClient(kubeconfigManager);
+        portForwardManager = new PortForwardManager(kubeconfigManager.getKubeConfig());
+        terminalManager = new TerminalManager(kubeconfigManager.getKubeConfig());
+        helmManager = new HelmManager();
+        alertManager = new AlertManager(context);
+        healthMonitor = new HealthMonitor(context);
+        kubectlTerminal = new KubectlTerminal(kubeconfigManager.getKubeConfig());
+        backupRestoreManager = new BackupRestoreManager(kubeconfigManager.getKubeConfig());
+        yamlEditor = new YAMLEditor(kubeconfigManager.getKubeConfig());
+        auditLogViewer = new AuditLogViewer(kubeconfigManager.getKubeConfig());
+        policyEnforcementManager = new PolicyEnforcementManager(kubeconfigManager.getKubeConfig());
+
+        // Test connection
+        setTimeout(async () => {
+            logger.debug('Testing Kubernetes API connection...');
+            try {
+                const namespaces = await k8sClient.getNamespaces();
+                logger.info(`Connection test: Found ${namespaces.length} namespaces`);
+                const pods = await k8sClient.getPods();
+                logger.debug(`Connection test: Found ${pods.length} pods`);
+            } catch (error) {
+                logger.error('Connection test failed', error);
+                vscode.window.showWarningMessage('Could not connect to Kubernetes cluster. Please check your kubeconfig.');
+            }
+        }, 2000);
+
+        // Initialize providers
+        clusterProvider = new ClusterProvider(kubeconfigManager, k8sClient, context);
+        workloadsProvider = new ResourceProvider(k8sClient, 'workloads');
+        configProvider = new ResourceProvider(k8sClient, 'config');
+        networkProvider = new ResourceProvider(k8sClient, 'network');
+        storageProvider = new ResourceProvider(k8sClient, 'storage');
+        crdProvider = new CRDProvider(k8sClient);
+        rbacProvider = new RBACProvider(k8sClient);
+        jobProvider = new JobProvider(k8sClient);
+        namespaceProvider = new NamespaceProvider(k8sClient);
+        nodeProvider = new NodeProvider(k8sClient);
+
+        // Check if Helm is installed - don't await, do it async to not block activation
+        let helmInstalled = false;
+        helmManager.checkHelmInstalled()
+            .then(installed => {
+                helmInstalled = installed;
+                if (helmInstalled) {
+                    helmProvider = new HelmProvider(helmManager);
+                    logger.info('Helm is installed - Helm view enabled');
+                    vscode.commands.executeCommand('setContext', 'clusterPilot.helmInstalled', true);
+                } else {
+                    logger.warn('Helm is not installed - Helm view disabled');
+                    vscode.commands.executeCommand('setContext', 'clusterPilot.helmInstalled', false);
+                }
+            })
+            .catch(error => {
+                logger.warn('Failed to check Helm installation', error);
+                vscode.commands.executeCommand('setContext', 'clusterPilot.helmInstalled', false);
+            });
+    } catch (error) {
+        logger.error('Critical error during extension initialization', error);
+        vscode.window.showErrorMessage(`Cluster Pilot failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
+        // Continue to register commands and views even if initialization failed
+        // Commands will show appropriate error messages when executed
     }
 
-    // Register tree views
-    const clustersView = vscode.window.createTreeView('clusterPilot.clusters', {
-        treeDataProvider: clusterProvider,
-        showCollapseAll: true
-    });
+    // Log initialization status but continue regardless
+    if (!kubeconfigManager || !k8sClient) {
+        logger.warn('Core components failed to initialize - extension running in limited mode');
+        vscode.window.showWarningMessage('Cluster Pilot: Some components failed to initialize. Check your kubeconfig.');
+        // DO NOT RETURN - continue to register views and commands
+    }
 
-    const workloadsView = vscode.window.createTreeView('clusterPilot.workloads', {
-        treeDataProvider: workloadsProvider,
-        showCollapseAll: true
-    });
-
-    const configView = vscode.window.createTreeView('clusterPilot.config', {
-        treeDataProvider: configProvider,
-        showCollapseAll: true
-    });
-
-    const networkView = vscode.window.createTreeView('clusterPilot.network', {
-        treeDataProvider: networkProvider,
-        showCollapseAll: true
-    });
-
-    const storageView = vscode.window.createTreeView('clusterPilot.storage', {
-        treeDataProvider: storageProvider,
-        showCollapseAll: true
-    });
-
-    const crdsView = vscode.window.createTreeView('clusterPilot.crds', {
-        treeDataProvider: crdProvider,
-        showCollapseAll: true
-    });
-
-    // Conditionally register Helm view only if Helm is installed
+    // Register tree views (will fail gracefully if providers are undefined)
+    let clustersView, workloadsView, configView, networkView, storageView, crdsView, rbacView, jobsView, namespacesView, nodesView;
     let helmView: vscode.TreeView<any> | undefined;
-    if (helmProvider) {
-        helmView = vscode.window.createTreeView('clusterPilot.helm', {
-            treeDataProvider: helmProvider,
+    
+    if (clusterProvider && workloadsProvider && configProvider && networkProvider && 
+        storageProvider && crdProvider && rbacProvider && jobProvider && 
+        namespaceProvider && nodeProvider) {
+        
+        clustersView = vscode.window.createTreeView('clusterPilot.clusters', {
+            treeDataProvider: clusterProvider,
             showCollapseAll: true
         });
-    }
 
-    const rbacView = vscode.window.createTreeView('clusterPilot.rbac', {
-        treeDataProvider: rbacProvider,
-        showCollapseAll: true
-    });
+        workloadsView = vscode.window.createTreeView('clusterPilot.workloads', {
+            treeDataProvider: workloadsProvider,
+            showCollapseAll: true
+        });
 
-    const jobsView = vscode.window.createTreeView('clusterPilot.jobs', {
-        treeDataProvider: jobProvider,
-        showCollapseAll: true
-    });
+        configView = vscode.window.createTreeView('clusterPilot.config', {
+            treeDataProvider: configProvider,
+            showCollapseAll: true
+        });
 
-    const namespacesView = vscode.window.createTreeView('clusterPilot.namespaces', {
-        treeDataProvider: namespaceProvider,
-        showCollapseAll: true
-    });
+        networkView = vscode.window.createTreeView('clusterPilot.network', {
+            treeDataProvider: networkProvider,
+            showCollapseAll: true
+        });
 
-    const nodesView = vscode.window.createTreeView('clusterPilot.nodes', {
-        treeDataProvider: nodeProvider,
-        showCollapseAll: true
-    });
+        storageView = vscode.window.createTreeView('clusterPilot.storage', {
+            treeDataProvider: storageProvider,
+            showCollapseAll: true
+        });
 
-    // Add all views to subscriptions for proper disposal
-    context.subscriptions.push(
-        clustersView,
-        workloadsView,
-        configView,
-        networkView,
-        storageView,
-        crdsView,
-        rbacView,
-        jobsView,
-        namespacesView,
-        nodesView
-    );
-    
-    // Add Helm view if it was created
-    if (helmView) {
-        context.subscriptions.push(helmView);
-    }
+        crdsView = vscode.window.createTreeView('clusterPilot.crds', {
+            treeDataProvider: crdProvider,
+            showCollapseAll: true
+        });
 
-    // Handle clicks on resource items to show details
-    context.subscriptions.push(
-        clustersView.onDidChangeSelection(e => {
+        // Conditionally register Helm view only if Helm is installed
+        if (helmProvider) {
+            helmView = vscode.window.createTreeView('clusterPilot.helm', {
+                treeDataProvider: helmProvider,
+                showCollapseAll: true
+            });
+        }
+
+        rbacView = vscode.window.createTreeView('clusterPilot.rbac', {
+            treeDataProvider: rbacProvider,
+            showCollapseAll: true
+        });
+
+        jobsView = vscode.window.createTreeView('clusterPilot.jobs', {
+            treeDataProvider: jobProvider,
+            showCollapseAll: true
+        });
+
+        namespacesView = vscode.window.createTreeView('clusterPilot.namespaces', {
+            treeDataProvider: namespaceProvider,
+            showCollapseAll: true
+        });
+
+        nodesView = vscode.window.createTreeView('clusterPilot.nodes', {
+            treeDataProvider: nodeProvider,
+            showCollapseAll: true
+        });
+
+        // Add all views to subscriptions for proper disposal
+        context.subscriptions.push(
+            clustersView,
+            workloadsView,
+            configView,
+            networkView,
+            storageView,
+            crdsView,
+            rbacView,
+            jobsView,
+            namespacesView,
+            nodesView
+        );
+        
+        // Add Helm view if it was created
+        if (helmView) {
+            context.subscriptions.push(helmView);
+        }
+
+        // Handle clicks on resource items to show details
+        context.subscriptions.push(
+            clustersView.onDidChangeSelection(e => {
             if (e.selection.length > 0 && e.selection[0].type === 'context') {
                 // Show multi-cluster manager when a cluster is selected
                 commands.showMultiClusterManager(k8sClient, kubeconfigManager);
@@ -219,20 +267,42 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+    } // End of providers check
 
-    // Register commands
+    // ALWAYS Register commands - even if initialization failed
+    // Commands will check for null/undefined and show appropriate error messages
     context.subscriptions.push(
-        vscode.commands.registerCommand('clusterPilot.addCluster', () => 
-            commands.addCluster(kubeconfigManager, clusterProvider)),
+        vscode.commands.registerCommand('clusterPilot.addCluster', () => {
+            if (!kubeconfigManager || !clusterProvider) {
+                vscode.window.showErrorMessage('Cluster Pilot not properly initialized');
+                return;
+            }
+            commands.addCluster(kubeconfigManager, clusterProvider);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.removeCluster', (item) => 
-            commands.removeCluster(kubeconfigManager, clusterProvider, item)),
+        vscode.commands.registerCommand('clusterPilot.removeCluster', (item) => {
+            if (!kubeconfigManager || !clusterProvider) {
+                vscode.window.showErrorMessage('Cluster Pilot not properly initialized');
+                return;
+            }
+            commands.removeCluster(kubeconfigManager, clusterProvider, item);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.switchContext', () => 
-            commands.switchContext(kubeconfigManager, k8sClient, clusterProvider)),
+        vscode.commands.registerCommand('clusterPilot.switchContext', () => {
+            if (!kubeconfigManager || !k8sClient || !clusterProvider) {
+                vscode.window.showErrorMessage('Cluster Pilot not properly initialized');
+                return;
+            }
+            commands.switchContext(kubeconfigManager, k8sClient, clusterProvider);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.refresh', () => 
-            commands.refreshAll(clusterProvider, workloadsProvider, configProvider, networkProvider, storageProvider, crdProvider)),
+        vscode.commands.registerCommand('clusterPilot.refresh', () => {
+            if (!clusterProvider || !workloadsProvider || !configProvider || !networkProvider || !storageProvider || !crdProvider) {
+                vscode.window.showErrorMessage('Cluster Pilot not properly initialized');
+                return;
+            }
+            commands.refreshAll(clusterProvider, workloadsProvider, configProvider, networkProvider, storageProvider, crdProvider);
+        }),
         
         vscode.commands.registerCommand('clusterPilot.viewLogs', (item) => 
             commands.viewLogs(k8sClient, item)),
@@ -619,42 +689,47 @@ export async function activate(context: vscode.ExtensionContext) {
             policyEnforcementManager.showPolicyPanel())
     );
 
-    // Register views
-    context.subscriptions.push(
-        clustersView,
-        workloadsView,
-        configView,
-        networkView,
-        storageView,
-        crdsView,
-        rbacView,
-        jobsView,
-        namespacesView,
-        nodesView,
-        portForwardManager,
-        terminalManager,
-        alertManager,
-        yamlEditor
-    );
-
-    // Setup auto-refresh if enabled
-    const config = vscode.workspace.getConfiguration('clusterPilot');
-    const refreshInterval = config.get<number>('refreshInterval', 5000);
+    // Register views (only if they were created)
+    if (clustersView) context.subscriptions.push(clustersView);
+    if (workloadsView) context.subscriptions.push(workloadsView);
+    if (configView) context.subscriptions.push(configView);
+    if (networkView) context.subscriptions.push(networkView);
+    if (storageView) context.subscriptions.push(storageView);
+    if (crdsView) context.subscriptions.push(crdsView);
+    if (rbacView) context.subscriptions.push(rbacView);
+    if (jobsView) context.subscriptions.push(jobsView);
+    if (namespacesView) context.subscriptions.push(namespacesView);
+    if (nodesView) context.subscriptions.push(nodesView);
+    if (helmView) context.subscriptions.push(helmView);
     
-    if (refreshInterval > 0) {
-        const refreshTimer = setInterval(() => {
-            commands.refreshAll(clusterProvider, workloadsProvider, configProvider, networkProvider, storageProvider, crdProvider);
-        }, refreshInterval);
+    // Register managers (only if they were created)
+    if (portForwardManager) context.subscriptions.push(portForwardManager);
+    if (terminalManager) context.subscriptions.push(terminalManager);
+    if (alertManager) context.subscriptions.push(alertManager);
+    if (yamlEditor) context.subscriptions.push(yamlEditor);
 
-        context.subscriptions.push({
-            dispose: () => clearInterval(refreshTimer)
-        });
+    // Setup auto-refresh if enabled (only if providers initialized)
+    if (clusterProvider && workloadsProvider && configProvider && networkProvider && storageProvider && crdProvider) {
+        const config = vscode.workspace.getConfiguration('clusterPilot');
+        const refreshInterval = config.get<number>('refreshInterval', 5000);
+        
+        if (refreshInterval > 0) {
+            const refreshTimer = setInterval(() => {
+                commands.refreshAll(clusterProvider, workloadsProvider, configProvider, networkProvider, storageProvider, crdProvider);
+            }, refreshInterval);
+
+            context.subscriptions.push({
+                dispose: () => clearInterval(refreshTimer)
+            });
+        }
     }
 
-    // Show multi-cluster manager by default on startup
-    setTimeout(() => {
-        commands.showMultiClusterManager(k8sClient, kubeconfigManager);
-    }, 1000);
+    // Show multi-cluster manager by default on startup (only if initialized)
+    if (k8sClient && kubeconfigManager) {
+        setTimeout(() => {
+            commands.showMultiClusterManager(k8sClient, kubeconfigManager);
+        }, 1000);
+    }
 
     // Register logger for cleanup
     context.subscriptions.push({
