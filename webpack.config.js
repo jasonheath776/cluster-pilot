@@ -28,6 +28,11 @@ module.exports = {
       }
     ]
   },
+  optimization: {
+    usedExports: true,
+    sideEffects: false,
+    minimize: true
+  },
   devtool: 'nosources-source-map',
   infrastructureLogging: {
     level: "log"

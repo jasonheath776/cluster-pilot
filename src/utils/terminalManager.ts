@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as k8s from '@kubernetes/client-node';
 import { Writable, Readable } from 'stream';
-import * as WebSocket from 'ws';
+import WebSocket from 'ws';
 import { validateNamespace, validateResourceName, validateContainerName } from './validation';
 import { logger } from './logger';
 
