@@ -40,7 +40,10 @@ export class BackupRestoreManager {
             if (configuredPath.startsWith('~')) {
                 configuredPath = path.join(os.homedir(), configuredPath.slice(1));
             }
-            configuredPath = path.resolve(configuredPath);
+            // Only resolve if it's already an absolute path, otherwise treat as relative to home
+            if (!path.isAbsolute(configuredPath)) {
+                configuredPath = path.join(os.homedir(), '.jas-cluster-pilot', 'backups', configuredPath);
+            }
             
             // Validate path is not in protected system directories
             const normalizedPath = configuredPath.toLowerCase().replace(/\\/g, '/');
