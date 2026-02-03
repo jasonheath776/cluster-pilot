@@ -14,6 +14,7 @@ jest.mock('vscode', () => ({
         contextValue?: string;
         description?: string;
         tooltip?: string;
+        iconPath?: any;
     },
     TreeItemCollapsibleState: {
         None: 0,
@@ -21,6 +22,9 @@ jest.mock('vscode', () => ({
         Expanded: 2
     },
     ThemeIcon: class {
+        constructor(public id: string, public color?: any) {}
+    },
+    ThemeColor: class {
         constructor(public id: string) {}
     },
     EventEmitter: jest.fn().mockImplementation(() => ({
@@ -57,20 +61,21 @@ jest.mock('../utils/debounce', () => ({
 
 // Mock K8sClient
 const mockK8sClient = {
-    getPods: jest.fn(),
-    getDeployments: jest.fn(),
-    getStatefulSets: jest.fn(),
-    getDaemonSets: jest.fn(),
-    getJobs: jest.fn(),
-    getConfigMaps: jest.fn(),
-    getSecrets: jest.fn(),
-    getServices: jest.fn(),
-    getIngresses: jest.fn(),
-    getPersistentVolumes: jest.fn(),
-    getPersistentVolumeClaims: jest.fn(),
-    getStorageClasses: jest.fn(),
-    getNamespaces: jest.fn(),
-    getNodes: jest.fn()
+    getPods: jest.fn().mockResolvedValue([]),
+    getDeployments: jest.fn().mockResolvedValue([]),
+    getStatefulSets: jest.fn().mockResolvedValue([]),
+    getDaemonSets: jest.fn().mockResolvedValue([]),
+    getJobs: jest.fn().mockResolvedValue([]),
+    getConfigMaps: jest.fn().mockResolvedValue([]),
+    getSecrets: jest.fn().mockResolvedValue([]),
+    getServices: jest.fn().mockResolvedValue([]),
+    getIngresses: jest.fn().mockResolvedValue([]),
+    getPersistentVolumes: jest.fn().mockResolvedValue([]),
+    getPersistentVolumeClaims: jest.fn().mockResolvedValue([]),
+    getStorageClasses: jest.fn().mockResolvedValue([]),
+    getNamespaces: jest.fn().mockResolvedValue([]),
+    getNodes: jest.fn().mockResolvedValue([]),
+    getKubeConfig: jest.fn().mockReturnValue({})
 };
 
 describe('Provider Integration Tests', () => {
@@ -304,8 +309,10 @@ describe('Provider Integration Tests', () => {
                 
                 const items = await provider.getChildren(podsType);
                 
-                // Should return empty array on error
-                expect(items).toEqual([]);
+                // Should return error item on error
+                expect(items.length).toBe(1);
+                expect(items[0].type).toBe('error');
+                expect(items[0].label).toBe('Error loading resources');
             });
         });
     });
@@ -313,13 +320,10 @@ describe('Provider Integration Tests', () => {
     describe('NamespaceProvider', () => {
         let provider: NamespaceProvider;
 
-        beforeEach(() => {
-            jest.clearAllMocks();
-            provider = new NamespaceProvider(mockK8sClient as any);
-        });
-
         afterEach(() => {
-            provider.dispose();
+            if (provider) {
+                provider.dispose();
+            }
         });
 
         it('should fetch namespaces', async () => {
@@ -328,17 +332,28 @@ describe('Provider Integration Tests', () => {
                 { metadata: { name: 'kube-system' } },
                 { metadata: { name: 'production' } }
             ];
-            mockK8sClient.getNamespaces.mockResolvedValue(namespaces);
-
+            
+            // Create provider with inline mock
+            const getNamespacesMock = jest.fn(async () => namespaces);
+            const customMock = {
+                ...mockK8sClient,
+                getNamespaces: getNamespacesMock
+            };
+            provider = new NamespaceProvider(customMock as any);
+            
             const items = await provider.getChildren();
             
-            expect(mockK8sClient.getNamespaces).toHaveBeenCalled();
-            expect(items.length).toBeGreaterThan(0);
+            expect(getNamespacesMock).toHaveBeenCalled();
+            expect(items.length).toBe(3);
+            expect(items[0].label).toBe('default');
         });
 
         it('should handle empty namespace list', async () => {
-            mockK8sClient.getNamespaces.mockResolvedValue([]);
-
+            const customMock = {
+                ...mockK8sClient,
+                getNamespaces: jest.fn(async () => [])
+            };
+            provider = new NamespaceProvider(customMock as any);
             const items = await provider.getChildren();
             
             expect(items.length).toBe(0);
@@ -348,13 +363,10 @@ describe('Provider Integration Tests', () => {
     describe('NodeProvider', () => {
         let provider: NodeProvider;
 
-        beforeEach(() => {
-            jest.clearAllMocks();
-            provider = new NodeProvider(mockK8sClient as any);
-        });
-
         afterEach(() => {
-            provider.dispose();
+            if (provider) {
+                provider.dispose();
+            }
         });
 
         it('should fetch nodes', async () => {
@@ -372,17 +384,27 @@ describe('Provider Integration Tests', () => {
                     }
                 }
             ];
-            mockK8sClient.getNodes.mockResolvedValue(nodes);
-
+            
+            // Create provider with inline mock
+            const customMock = {
+                ...mockK8sClient,
+                getNodes: jest.fn(async () => nodes)
+            };
+            provider = new NodeProvider(customMock as any);
+            
             const items = await provider.getChildren();
             
-            expect(mockK8sClient.getNodes).toHaveBeenCalled();
-            expect(items.length).toBeGreaterThan(0);
+            expect(customMock.getNodes).toHaveBeenCalled();
+            expect(items.length).toBe(2);
+            expect(items[0].label).toBe('node-1');
         });
 
         it('should handle node fetch errors', async () => {
-            mockK8sClient.getNodes.mockRejectedValue(new Error('Node API Error'));
-
+            const customMock = {
+                ...mockK8sClient,
+                getNodes: jest.fn(async () => { throw new Error('Node API Error'); })
+            };
+            provider = new NodeProvider(customMock as any);
             const items = await provider.getChildren();
             
             expect(items).toEqual([]);
@@ -391,23 +413,24 @@ describe('Provider Integration Tests', () => {
 
     describe('Cross-Provider Integration', () => {
         it('should allow multiple providers to coexist', async () => {
-            const workloadsProvider = new ResourceProvider(mockK8sClient as any, 'workloads');
-            const namespaceProvider = new NamespaceProvider(mockK8sClient as any);
-            const nodeProvider = new NodeProvider(mockK8sClient as any);
-
-            mockK8sClient.getNamespaces.mockResolvedValue([
-                { metadata: { name: 'default' } }
-            ]);
-            mockK8sClient.getNodes.mockResolvedValue([
-                { metadata: { name: 'node-1' } }
-            ]);
+            const customMock = {
+                ...mockK8sClient,
+                getNamespaces: jest.fn(async () => [{ metadata: { name: 'default' } }]),
+                getNodes: jest.fn(async () => [{ metadata: { name: 'node-1' }, status: { conditions: [{ type: 'Ready', status: 'True' }] } }])
+            };
+            
+            const workloadsProvider = new ResourceProvider(customMock as any, 'workloads');
+            const namespaceProvider = new NamespaceProvider(customMock as any);
+            const nodeProvider = new NodeProvider(customMock as any);
 
             const nsItems = await namespaceProvider.getChildren();
             const nodeItems = await nodeProvider.getChildren();
             const workloadTypes = await workloadsProvider.getChildren();
 
-            expect(nsItems.length).toBeGreaterThan(0);
-            expect(nodeItems.length).toBeGreaterThan(0);
+            expect(nsItems.length).toBe(1);
+            expect(nsItems[0].label).toBe('default');
+            expect(nodeItems.length).toBe(1);
+            expect(nodeItems[0].label).toBe('node-1');
             expect(workloadTypes.length).toBe(5);
 
             workloadsProvider.dispose();
