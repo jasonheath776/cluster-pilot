@@ -29,32 +29,56 @@ import * as treeCommands from './commands/treeCommands';
 let k8sClient: K8sClient;
 let kubeconfigManager: KubeconfigManager;
 
+// Helper function to safely register commands with automatic null checking
+function safeRegisterCommand(
+    commandId: string,
+    callback: (...args: any[]) => any,
+    requiredDependencies: { [key: string]: any }
+): vscode.Disposable {
+    return vscode.commands.registerCommand(commandId, (...args: any[]) => {
+        // Check if all required dependencies are initialized
+        const missingDeps = Object.entries(requiredDependencies)
+            .filter(([_, value]) => !value)
+            .map(([key, _]) => key);
+        
+        if (missingDeps.length > 0) {
+            const msg = `Command '${commandId}' unavailable: ${missingDeps.join(', ')} not initialized. The extension may have failed to start properly.`;
+            vscode.window.showErrorMessage(msg);
+            logger.error(msg);
+            return;
+        }
+        
+        // All dependencies present, execute callback
+        return callback(...args);
+    });
+}
+
 export async function activate(context: vscode.ExtensionContext) {
     // Initialize logger first - this should always work
     logger.updateConfiguration();
     logger.info('Cluster Pilot extension activating...');
     
-    // Declare local variables with definite assignment assertions
-    let portForwardManager!: PortForwardManager;
-    let terminalManager!: TerminalManager;
-    let helmManager!: HelmManager;
-    let alertManager!: AlertManager;
-    let healthMonitor!: HealthMonitor;
-    let kubectlTerminal!: KubectlTerminal;
-    let backupRestoreManager!: BackupRestoreManager;
-    let yamlEditor!: YAMLEditor;
-    let auditLogViewer!: AuditLogViewer;
-    let policyEnforcementManager!: PolicyEnforcementManager;
-    let clusterProvider!: ClusterProvider;
-    let workloadsProvider!: ResourceProvider;
-    let configProvider!: ResourceProvider;
-    let networkProvider!: ResourceProvider;
-    let storageProvider!: ResourceProvider;
-    let crdProvider!: CRDProvider;
-    let rbacProvider!: RBACProvider;
-    let jobProvider!: JobProvider;
-    let namespaceProvider!: NamespaceProvider;
-    let nodeProvider!: NodeProvider;
+    // Declare local variables - make them optional to handle initialization failures gracefully
+    let portForwardManager: PortForwardManager | undefined;
+    let terminalManager: TerminalManager | undefined;
+    let helmManager: HelmManager | undefined;
+    let alertManager: AlertManager | undefined;
+    let healthMonitor: HealthMonitor | undefined;
+    let kubectlTerminal: KubectlTerminal | undefined;
+    let backupRestoreManager: BackupRestoreManager | undefined;
+    let yamlEditor: YAMLEditor | undefined;
+    let auditLogViewer: AuditLogViewer | undefined;
+    let policyEnforcementManager: PolicyEnforcementManager | undefined;
+    let clusterProvider: ClusterProvider | undefined;
+    let workloadsProvider: ResourceProvider | undefined;
+    let configProvider: ResourceProvider | undefined;
+    let networkProvider: ResourceProvider | undefined;
+    let storageProvider: ResourceProvider | undefined;
+    let crdProvider: CRDProvider | undefined;
+    let rbacProvider: RBACProvider | undefined;
+    let jobProvider: JobProvider | undefined;
+    let namespaceProvider: NamespaceProvider | undefined;
+    let nodeProvider: NodeProvider | undefined;
     let helmProvider: HelmProvider | undefined;
     
     try {
@@ -121,7 +145,7 @@ export async function activate(context: vscode.ExtensionContext) {
         helmManager.checkHelmInstalled()
             .then(installed => {
                 helmInstalled = installed;
-                if (helmInstalled) {
+                if (helmInstalled && helmManager) {
                     helmProvider = new HelmProvider(helmManager);
                     logger.info('Helm is installed - Helm view enabled');
                     vscode.commands.executeCommand('setContext', 'clusterPilot.helmInstalled', true);
@@ -136,16 +160,22 @@ export async function activate(context: vscode.ExtensionContext) {
             });
     } catch (error) {
         logger.error('Critical error during extension initialization', error);
-        vscode.window.showErrorMessage(`Cluster Pilot failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`Cluster Pilot failed to initialize: ${errorMsg}. Commands will be available but may not work until the issue is resolved.`);
+        logger.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
         // Continue to register commands and views even if initialization failed
         // Commands will show appropriate error messages when executed
     }
 
     // Log initialization status but continue regardless
-    if (!kubeconfigManager || !k8sClient) {
+    const initSuccess = !!(kubeconfigManager && k8sClient && clusterProvider);
+    if (!initSuccess) {
         logger.warn('Core components failed to initialize - extension running in limited mode');
-        vscode.window.showWarningMessage('Cluster Pilot: Some components failed to initialize. Check your kubeconfig.');
+        logger.warn(`Status: kubeconfigManager=${!!kubeconfigManager}, k8sClient=${!!k8sClient}, clusterProvider=${!!clusterProvider}`);
+        vscode.window.showWarningMessage('Cluster Pilot: Some components failed to initialize. Commands may not work. Check the Output panel for details.');
         // DO NOT RETURN - continue to register views and commands
+    } else {
+        logger.info('Core components initialized successfully');
     }
 
     // Register tree views (will fail gracefully if providers are undefined)
@@ -271,6 +301,16 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // ALWAYS Register commands - even if initialization failed
     // Commands will check for null/undefined and show appropriate error messages
+    
+    // For commands that require initialized components, add explicit checks
+    const checkInit = (componentName: string, component: any) => {
+        if (!component) {
+            vscode.window.showErrorMessage(`Cluster Pilot: ${componentName} not initialized. Extension may have failed to start.`);
+            return false;
+        }
+        return true;
+    };
+    
     context.subscriptions.push(
         vscode.commands.registerCommand('clusterPilot.addCluster', () => {
             if (!kubeconfigManager || !clusterProvider) {
@@ -313,8 +353,13 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('clusterPilot.editResource', (item) => 
             commands.editResource(k8sClient, item)),
         
-        vscode.commands.registerCommand('clusterPilot.deleteResource', (item) => 
-            commands.deleteResource(k8sClient, item, workloadsProvider, configProvider, networkProvider, storageProvider)),
+        vscode.commands.registerCommand('clusterPilot.deleteResource', (item) => {
+            if (!workloadsProvider || !configProvider || !networkProvider || !storageProvider) {
+                vscode.window.showErrorMessage('Cluster Pilot: Providers not initialized');
+                return;
+            }
+            return commands.deleteResource(k8sClient, item, workloadsProvider, configProvider, networkProvider, storageProvider);
+        }),
         
         vscode.commands.registerCommand('clusterPilot.describeResource', (item) => 
             commands.describeResource(k8sClient, item)),
@@ -338,11 +383,13 @@ export async function activate(context: vscode.ExtensionContext) {
             commands.showResourceDetails(context, item, k8sClient)),
         
         vscode.commands.registerCommand('clusterPilot.enableClusterMetrics', (item) => {
+            if (!clusterProvider) return;
             commands.enableClusterMetrics(context, item);
             clusterProvider.refresh();
         }),
         
         vscode.commands.registerCommand('clusterPilot.disableClusterMetrics', (item) => {
+            if (!clusterProvider) return;
             commands.disableClusterMetrics(context, item);
             clusterProvider.refresh();
         }),
@@ -357,6 +404,11 @@ export async function activate(context: vscode.ExtensionContext) {
             commands.rollbackDeployment(k8sClient, item)),
         
         vscode.commands.registerCommand('clusterPilot.filterByNamespace', async () => {
+            if (!workloadsProvider || !configProvider || !networkProvider || !storageProvider) {
+                vscode.window.showErrorMessage('Cluster Pilot: Providers not initialized');
+                return;
+            }
+            
             // Prompt user to select which view to filter
             const viewOptions = [
                 { label: 'Workloads', provider: workloadsProvider },
@@ -378,20 +430,32 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         }),
         
-        vscode.commands.registerCommand('clusterPilot.startPortForward', (item) => 
-            commands.startPortForward(portForwardManager, item)),
+        vscode.commands.registerCommand('clusterPilot.startPortForward', (item) => {
+            if (!portForwardManager) { vscode.window.showErrorMessage('Port forward manager not initialized'); return; }
+            return commands.startPortForward(portForwardManager, item);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.stopPortForward', (id) => 
-            commands.stopPortForward(portForwardManager, id)),
+        vscode.commands.registerCommand('clusterPilot.stopPortForward', (id) => {
+            if (!portForwardManager) { vscode.window.showErrorMessage('Port forward manager not initialized'); return; }
+            return commands.stopPortForward(portForwardManager, id);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.listPortForwards', () => 
-            commands.listPortForwards(portForwardManager)),
+        vscode.commands.registerCommand('clusterPilot.listPortForwards', () => {
+            if (!portForwardManager) { vscode.window.showErrorMessage('Port forward manager not initialized'); return; }
+            return commands.listPortForwards(portForwardManager);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.execInPod', (item) => 
-            commands.execInPod(terminalManager, item)),
+        vscode.commands.registerCommand('clusterPilot.execInPod', (item) => {
+            if (!terminalManager) { vscode.window.showErrorMessage('Terminal manager not initialized'); return; }
+            return commands.execInPod(terminalManager, item);
+        }),
         
         // Advanced tree view commands
         vscode.commands.registerCommand('clusterPilot.filterTreeView', async (viewName?: string) => {
+            if (!workloadsProvider || !configProvider || !networkProvider || !storageProvider || !namespaceProvider || !nodeProvider) {
+                vscode.window.showErrorMessage('Providers not initialized');
+                return;
+            }
             // Determine which provider to filter
             const providers = {
                 'workloads': workloadsProvider,
@@ -426,7 +490,10 @@ export async function activate(context: vscode.ExtensionContext) {
             };
             
             if (viewName && viewName in providers) {
-                treeCommands.clearTreeFilter(providers[viewName as keyof typeof providers]);
+                const provider = providers[viewName as keyof typeof providers];
+                if (provider) {
+                    treeCommands.clearTreeFilter(provider);
+                }
             }
         }),
         
@@ -445,22 +512,25 @@ export async function activate(context: vscode.ExtensionContext) {
             };
             
             if (viewName && viewName in providers) {
-                await treeCommands.toggleProgressiveLoading(providers[viewName as keyof typeof providers]);
+                const provider = providers[viewName as keyof typeof providers];
+                if (provider) {
+                    await treeCommands.toggleProgressiveLoading(provider);
+                }
             }
         }),
         
         vscode.commands.registerCommand('clusterPilot.enableWatch', (viewName?: string) => {
-            if (viewName === 'namespaces') {
+            if (viewName === 'namespaces' && namespaceProvider) {
                 treeCommands.enableWatch(namespaceProvider);
-            } else if (viewName === 'nodes') {
+            } else if (viewName === 'nodes' && nodeProvider) {
                 treeCommands.enableWatch(nodeProvider);
             }
         }),
         
-        vscode.commands.registerCommand('clusterPilot.disableWatch', (viewName?: string) => {
-            if (viewName === 'namespaces') {
+        vscode.commands.registerCommand('clusterPilot.disableWatch', (viewName: string) => {
+            if (viewName === 'namespaces' && namespaceProvider) {
                 treeCommands.disableWatch(namespaceProvider);
-            } else if (viewName === 'nodes') {
+            } else if (viewName === 'nodes' && nodeProvider) {
                 treeCommands.disableWatch(nodeProvider);
             }
         }),
@@ -468,14 +538,18 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('clusterPilot.viewRBACDetails', (item) => 
             commands.viewRBACDetails(context, item)),
         
-        vscode.commands.registerCommand('clusterPilot.showAlerts', () => 
-            commands.showAlerts(context, alertManager)),
+        vscode.commands.registerCommand('clusterPilot.showAlerts', () => {
+            if (!alertManager) { vscode.window.showErrorMessage('Alert manager not initialized'); return; }
+            return commands.showAlerts(context, alertManager);
+        }),
         
         vscode.commands.registerCommand('clusterPilot.showPVManager', () => 
             commands.showPVManager(context, k8sClient)),
         
-        vscode.commands.registerCommand('clusterPilot.configureHealthThresholds', () => 
-            commands.configureHealthThresholds(healthMonitor)),
+        vscode.commands.registerCommand('clusterPilot.configureHealthThresholds', () => {
+            if (!healthMonitor) { vscode.window.showErrorMessage('Health monitor not initialized'); return; }
+            return commands.configureHealthThresholds(healthMonitor);
+        }),
         
         vscode.commands.registerCommand('clusterPilot.showResourceTemplates', () => 
             commands.showResourceTemplates(context)),
@@ -483,45 +557,56 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('clusterPilot.showJobManager', () => 
             commands.showJobManager(context, k8sClient)),
         
-        vscode.commands.registerCommand('clusterPilot.deleteJob', (item) => 
-            commands.deleteJob(k8sClient, jobProvider, item)),
+        vscode.commands.registerCommand('clusterPilot.deleteJob', (item) => {
+            if (!jobProvider) { vscode.window.showErrorMessage('Job provider not initialized'); return; }
+            return commands.deleteJob(k8sClient, jobProvider, item);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.triggerCronJob', (item) => 
-            commands.triggerCronJob(k8sClient, jobProvider, item)),
+        vscode.commands.registerCommand('clusterPilot.triggerCronJob', (item) => {
+            if (!jobProvider) { vscode.window.showErrorMessage('Job provider not initialized'); return; }
+            return commands.triggerCronJob(k8sClient, jobProvider, item);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.suspendCronJob', (item) => 
-            commands.suspendCronJob(k8sClient, jobProvider, item)),
+        vscode.commands.registerCommand('clusterPilot.suspendCronJob', (item) => {
+            if (!jobProvider) { vscode.window.showErrorMessage('Job provider not initialized'); return; }
+            return commands.suspendCronJob(k8sClient, jobProvider, item);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.resumeCronJob', (item) => 
-            commands.resumeCronJob(k8sClient, jobProvider, item))
+        vscode.commands.registerCommand('clusterPilot.resumeCronJob', (item) => {
+            if (!jobProvider) { vscode.window.showErrorMessage('Job provider not initialized'); return; }
+            return commands.resumeCronJob(k8sClient, jobProvider, item);
+        })
     );
 
-    // Register Helm commands only if Helm is installed
-    if (helmProvider) {
+    // Register Helm commands only if Helm is installed and manager is initialized
+    if (helmProvider && helmManager) {
+        // TypeScript needs reassignment to narrow types within this block
+        const helm = helmManager;
+        const helmProv = helmProvider;
         context.subscriptions.push(
             vscode.commands.registerCommand('clusterPilot.installHelmChart', () => 
-                commands.installHelmChart(helmManager, helmProvider!)),
+                commands.installHelmChart(helm, helmProv)),
             
             vscode.commands.registerCommand('clusterPilot.uninstallHelmRelease', (item) => 
-                commands.uninstallHelmRelease(helmManager, helmProvider!, item)),
+                commands.uninstallHelmRelease(helm, helmProv, item)),
             
             vscode.commands.registerCommand('clusterPilot.upgradeHelmRelease', (item) => 
-                commands.upgradeHelmRelease(helmManager, helmProvider!, item)),
+                commands.upgradeHelmRelease(helm, helmProv, item)),
             
             vscode.commands.registerCommand('clusterPilot.rollbackHelmRelease', (item) => 
-                commands.rollbackHelmRelease(helmManager, helmProvider!, item)),
+                commands.rollbackHelmRelease(helm, helmProv, item)),
             
             vscode.commands.registerCommand('clusterPilot.viewHelmReleaseDetails', (item) => 
-                commands.viewHelmReleaseDetails(helmManager, item)),
+                commands.viewHelmReleaseDetails(helm, item)),
             
             vscode.commands.registerCommand('clusterPilot.addHelmRepo', () => 
-                commands.addHelmRepo(helmManager, helmProvider!)),
+                commands.addHelmRepo(helm, helmProv)),
             
             vscode.commands.registerCommand('clusterPilot.removeHelmRepo', (item) => 
-                commands.removeHelmRepo(helmManager, helmProvider!, item)),
+                commands.removeHelmRepo(helm, helmProv, item)),
             
             vscode.commands.registerCommand('clusterPilot.updateHelmRepos', () => 
-                commands.updateHelmRepos(helmManager, helmProvider!))
+                commands.updateHelmRepos(helm, helmProv))
         );
     }
 
@@ -533,11 +618,15 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('clusterPilot.showNamespaceManager', () => 
             commands.showNamespaceManager(context, k8sClient)),
         
-        vscode.commands.registerCommand('clusterPilot.createNamespace', () => 
-            commands.createNamespace(k8sClient, namespaceProvider)),
+        vscode.commands.registerCommand('clusterPilot.createNamespace', () => {
+            if (!namespaceProvider) { vscode.window.showErrorMessage('Namespace provider not initialized'); return; }
+            return commands.createNamespace(k8sClient, namespaceProvider);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.deleteNamespace', (item) => 
-            commands.deleteNamespace(k8sClient, namespaceProvider, item)),
+        vscode.commands.registerCommand('clusterPilot.deleteNamespace', (item) => {
+            if (!namespaceProvider) { vscode.window.showErrorMessage('Namespace provider not initialized'); return; }
+            return commands.deleteNamespace(k8sClient, namespaceProvider, item);
+        }),
         
         vscode.commands.registerCommand('clusterPilot.showNodeManager', () => 
             commands.showNodeManager(context.extensionUri, k8sClient)),
@@ -617,20 +706,27 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('clusterPilot.showEventStreamViewer', () => 
             commands.showEventStreamViewer(context.extensionUri, k8sClient)),
         
-        vscode.commands.registerCommand('clusterPilot.showHelmManagerPanel', () => 
-            commands.showHelmManagerPanel(context.extensionUri, helmManager)),
+        vscode.commands.registerCommand('clusterPilot.showHelmManagerPanel', () => {
+            if (!helmManager) { vscode.window.showErrorMessage('Helm manager not initialized'); return; }
+            return commands.showHelmManagerPanel(context.extensionUri, helmManager);
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.showPortForwardPanel', () => 
-            commands.showPortForwardPanel(context.extensionUri, portForwardManager, k8sClient)),
+        vscode.commands.registerCommand('clusterPilot.showPortForwardPanel', () => {
+            if (!portForwardManager) { vscode.window.showErrorMessage('Port forward manager not initialized'); return; }
+            return commands.showPortForwardPanel(context.extensionUri, portForwardManager, k8sClient);
+        }),
         
         vscode.commands.registerCommand('clusterPilot.showSecurityScanningPanel', () => 
             commands.showSecurityScanningPanel(context.extensionUri, k8sClient)),
         
         // kubectl Terminal Commands
-        vscode.commands.registerCommand('clusterPilot.openKubectlTerminal', () => 
-            kubectlTerminal.openKubectlTerminal()),
+        vscode.commands.registerCommand('clusterPilot.openKubectlTerminal', () => {
+            if (!kubectlTerminal) { vscode.window.showErrorMessage('kubectl terminal not initialized'); return; }
+            return kubectlTerminal.openKubectlTerminal();
+        }),
         
         vscode.commands.registerCommand('clusterPilot.openNamespaceTerminal', async (item) => {
+            if (!kubectlTerminal) { vscode.window.showErrorMessage('kubectl terminal not initialized'); return; }
             let namespace = item?.namespace || item?.resource?.metadata?.namespace;
             if (!namespace) {
                 namespace = await vscode.window.showInputBox({
@@ -644,20 +740,29 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         }),
         
-        vscode.commands.registerCommand('clusterPilot.showKubectlQuickCommands', () => 
-            kubectlTerminal.showQuickCommands()),
+        vscode.commands.registerCommand('clusterPilot.showKubectlQuickCommands', () => {
+            if (!kubectlTerminal) { vscode.window.showErrorMessage('kubectl terminal not initialized'); return; }
+            return kubectlTerminal.showQuickCommands();
+        }),
         
         // YAML Editor Commands
-        vscode.commands.registerCommand('clusterPilot.createResourceFromTemplate', () => 
-            yamlEditor.createResource()),
+        vscode.commands.registerCommand('clusterPilot.createResourceFromTemplate', () => {
+            if (!yamlEditor) { vscode.window.showErrorMessage('YAML editor not initialized'); return; }
+            return yamlEditor.createResource();
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.applyYamlToCluster', () => 
-            yamlEditor.applyActiveDocument()),
+        vscode.commands.registerCommand('clusterPilot.applyYamlToCluster', () => {
+            if (!yamlEditor) { vscode.window.showErrorMessage('YAML editor not initialized'); return; }
+            return yamlEditor.applyActiveDocument();
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.dryRunYaml', () => 
-            yamlEditor.dryRunActiveDocument()),
+        vscode.commands.registerCommand('clusterPilot.dryRunYaml', () => {
+            if (!yamlEditor) { vscode.window.showErrorMessage('YAML editor not initialized'); return; }
+            return yamlEditor.dryRunActiveDocument();
+        }),
         
         vscode.commands.registerCommand('clusterPilot.editResourceWithValidation', (item) => {
+            if (!yamlEditor) { vscode.window.showErrorMessage('YAML editor not initialized'); return; }
             const kind = item?.resource?.kind || item?.kind;
             const name = item?.resource?.metadata?.name || item?.name;
             const namespace = item?.resource?.metadata?.namespace || item?.namespace;
@@ -669,24 +774,33 @@ export async function activate(context: vscode.ExtensionContext) {
         }),
         
         // Backup & Restore Commands
-        vscode.commands.registerCommand('clusterPilot.showBackupPanel', () => 
-            backupRestoreManager.showBackupPanel()),
+        vscode.commands.registerCommand('clusterPilot.showBackupPanel', () => {
+            if (!backupRestoreManager) { vscode.window.showErrorMessage('Backup manager not initialized'); return; }
+            return backupRestoreManager.showBackupPanel();
+        }),
         
-        vscode.commands.registerCommand('clusterPilot.createBackup', () => 
-            backupRestoreManager.createBackupWizard()),
+        vscode.commands.registerCommand('clusterPilot.createBackup', () => {
+            if (!backupRestoreManager) { vscode.window.showErrorMessage('Backup manager not initialized'); return; }
+            return backupRestoreManager.createBackupWizard();
+        }),
         
         vscode.commands.registerCommand('clusterPilot.restoreBackup', async () => {
+            if (!backupRestoreManager) { vscode.window.showErrorMessage('Backup manager not initialized'); return; }
             vscode.window.showInformationMessage('Use the Backup & Restore Manager to restore backups');
             await backupRestoreManager.showBackupPanel();
         }),
         
         // Audit Log Viewer Commands (Tier 2)
-        vscode.commands.registerCommand('clusterPilot.showAuditLogViewer', () => 
-            auditLogViewer.showAuditLogViewer()),
+        vscode.commands.registerCommand('clusterPilot.showAuditLogViewer', () => {
+            if (!auditLogViewer) { vscode.window.showErrorMessage('Audit log viewer not initialized'); return; }
+            return auditLogViewer.showAuditLogViewer();
+        }),
         
         // Policy Enforcement Commands (Tier 2)
-        vscode.commands.registerCommand('clusterPilot.showPolicyEnforcement', () => 
-            policyEnforcementManager.showPolicyPanel())
+        vscode.commands.registerCommand('clusterPilot.showPolicyEnforcement', () => {
+            if (!policyEnforcementManager) { vscode.window.showErrorMessage('Policy enforcement not initialized'); return; }
+            return policyEnforcementManager.showPolicyPanel();
+        })
     );
 
     // Register views (only if they were created)
@@ -736,8 +850,14 @@ export async function activate(context: vscode.ExtensionContext) {
         dispose: () => logger.dispose()
     });
     
-    vscode.window.showInformationMessage('Cluster Pilot is ready!');
-    logger.info('Cluster Pilot extension activated successfully');
+    // Final activation status
+    if (initSuccess) {
+        vscode.window.showInformationMessage('Cluster Pilot is ready!');
+        logger.info('Cluster Pilot extension activated successfully');
+    } else {
+        logger.warn('Cluster Pilot extension activated with errors - limited functionality available');
+        logger.warn('Check the Cluster Pilot output channel for details');
+    }
 }
 
 export function deactivate() {
