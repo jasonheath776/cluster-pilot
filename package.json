@@ -1459,8 +1459,8 @@
         },
         "clusterPilot.backupDirectory": {
           "type": "string",
-          "default": "~/.jas-cluster-pilot/backups",
-          "description": "Directory to store cluster backups"
+          "default": "",
+          "markdownDescription": "Directory to store cluster backups. Leave empty to use default location: `~/.jas-cluster-pilot/backups`. **Note:** Avoid using protected directories like `C:\\Program Files` on Windows."
         },
         "clusterPilot.enableVerboseLogging": {
           "type": "boolean",

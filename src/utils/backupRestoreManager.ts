@@ -30,7 +30,19 @@ export class BackupRestoreManager {
         
         // Default backup directory
         const config = vscode.workspace.getConfiguration('clusterPilot');
-        this.backupDir = config.get<string>('backupDirectory', path.join(os.homedir(), '.jas-cluster-pilot', 'backups'));
+        let configuredPath = config.get<string>('backupDirectory', '');
+        
+        // Use default if not configured or empty
+        if (!configuredPath || configuredPath.trim() === '') {
+            configuredPath = path.join(os.homedir(), '.jas-cluster-pilot', 'backups');
+        } else {
+            // Expand tilde and resolve path
+            if (configuredPath.startsWith('~')) {
+                configuredPath = path.join(os.homedir(), configuredPath.slice(1));
+            }
+            configuredPath = path.resolve(configuredPath);
+        }
+        this.backupDir = configuredPath;
         
         // Ensure backup directory exists
         this.ensureBackupDirectory();
@@ -642,8 +654,36 @@ export class BackupRestoreManager {
     }
 
     private ensureBackupDirectory(): void {
-        if (!fs.existsSync(this.backupDir)) {
-            fs.mkdirSync(this.backupDir, { recursive: true });
+        try {
+            if (!fs.existsSync(this.backupDir)) {
+                fs.mkdirSync(this.backupDir, { recursive: true });
+            }
+            // Test write permissions
+            const testFile = path.join(this.backupDir, '.write-test');
+            fs.writeFileSync(testFile, '');
+            fs.unlinkSync(testFile);
+        } catch (error: any) {
+            // If we can't create/write to the configured directory, fall back to a safe location
+            const fallbackDir = path.join(os.homedir(), '.jas-cluster-pilot', 'backups');
+            console.warn(`Cannot use backup directory ${this.backupDir}: ${error.message}. Falling back to ${fallbackDir}`);
+            vscode.window.showWarningMessage(
+                `Cannot access backup directory. Using fallback location: ${fallbackDir}`,
+                'Open Settings'
+            ).then(selection => {
+                if (selection === 'Open Settings') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'clusterPilot.backupDirectory');
+                }
+            });
+            
+            this.backupDir = fallbackDir;
+            try {
+                if (!fs.existsSync(this.backupDir)) {
+                    fs.mkdirSync(this.backupDir, { recursive: true });
+                }
+            } catch (fallbackError: any) {
+                vscode.window.showErrorMessage(`Failed to create backup directory: ${fallbackError.message}`);
+                throw fallbackError;
+            }
         }
     }
 
