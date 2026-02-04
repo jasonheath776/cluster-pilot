@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import * as cp from 'child_process';
+import { promisify } from 'util';
 import { ClusterProvider } from './providers/clusterProvider';
 import { ResourceProvider } from './providers/resourceProvider';
 import { CRDProvider } from './providers/crdProvider';
@@ -25,6 +27,28 @@ import { PolicyEnforcementManager } from './utils/policyEnforcementManager';
 import { logger } from './utils/logger';
 import * as commands from './commands';
 import * as treeCommands from './commands/treeCommands';
+
+const execAsync = promisify(cp.exec);
+
+// Track availability of external tools
+let externalTools = {
+    kubectl: false,
+    helm: false,
+    trivy: false
+};
+
+/**
+ * Check if an external command is available
+ */
+async function checkCommandAvailable(command: string): Promise<boolean> {
+    try {
+        const versionCmd = command === 'trivy' ? `${command} --version` : `${command} version --short`;
+        await execAsync(versionCmd, { timeout: 5000 });
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 let k8sClient: K8sClient;
 let kubeconfigManager: KubeconfigManager;
@@ -57,6 +81,39 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize logger first - this should always work
     logger.updateConfiguration();
     logger.info('Cluster Pilot extension activating...');
+    
+    // Check for external tool availability (non-blocking)
+    try {
+        externalTools.kubectl = await checkCommandAvailable('kubectl');
+        externalTools.helm = await checkCommandAvailable('helm');
+        externalTools.trivy = await checkCommandAvailable('trivy');
+        
+        logger.info('External tools availability:', externalTools);
+        
+        // Show info message if critical tools are missing (only if warnings are enabled)
+        const config = vscode.workspace.getConfiguration('clusterPilot');
+        const showWarnings = config.get<boolean>('showToolAvailabilityWarnings', true);
+        
+        if (showWarnings) {
+            const missingTools: string[] = [];
+            if (!externalTools.kubectl) { missingTools.push('kubectl'); }
+            if (!externalTools.helm) { missingTools.push('helm'); }
+            
+            if (missingTools.length > 0) {
+                const message = `Some features require ${missingTools.join(' and ')} to be installed. Core cluster viewing will work, but some advanced features may be limited.`;
+                logger.warn(message);
+                vscode.window.showInformationMessage(message, 'Learn More', 'Don\'t Show Again').then(selection => {
+                    if (selection === 'Learn More') {
+                        vscode.env.openExternal(vscode.Uri.parse('https://github.com/jasonheath776/cluster-pilot#requirements'));
+                    } else if (selection === 'Don\'t Show Again') {
+                        config.update('showToolAvailabilityWarnings', false, vscode.ConfigurationTarget.Global);
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        logger.warn('Failed to check external tool availability:', error);
+    }
     
     // Declare local variables - make them optional to handle initialization failures gracefully
     let portForwardManager: PortForwardManager | undefined;

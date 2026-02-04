@@ -82,14 +82,22 @@ export class HelmManager {
 
     async checkHelmInstalled(): Promise<boolean> {
         try {
-            await execAsync('helm version --short');
+            await execAsync('helm version --short', { timeout: 5000 });
             return true;
-        } catch {
+        } catch (error) {
+            logger.debug('Helm not available:', error);
             return false;
         }
     }
 
     async listReleases(namespace?: string): Promise<HelmRelease[]> {
+        // Check if helm is available first
+        const isInstalled = await this.checkHelmInstalled();
+        if (!isInstalled) {
+            vscode.window.showWarningMessage('Helm is not installed or not in PATH. Please install Helm to manage releases.');
+            return [];
+        }
+        
         const args = ['list', '--output', 'json'];
         
         if (namespace) {

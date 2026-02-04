@@ -6,6 +6,32 @@ A comprehensive Kubernetes management extension for Visual Studio Code, providin
 > **Status**: Actively developed - suitable for development/testing on non-critical clusters  
 > **Support**: Community-driven; report issues on [GitHub](https://github.com/jasonheath776/cluster-pilot/issues)
 
+## Requirements
+
+### Required
+
+- **Kubernetes Cluster**: A valid kubeconfig file (`~/.kube/config` or custom path) with access to at least one cluster
+- **VS Code**: Version 1.80.0 or higher
+
+### Optional (for enhanced features)
+
+- **kubectl** - Required for:
+  - Integrated kubectl terminal
+  - Some advanced debugging features
+  - Install: https://kubernetes.io/docs/tasks/tools/
+
+- **helm** - Required for:
+  - Helm chart management
+  - Chart installation/upgrade/rollback
+  - Install: https://helm.sh/docs/intro/install/
+
+- **trivy** - Required for:
+  - Container image vulnerability scanning
+  - Security analysis features
+  - Install: https://aquasecurity.github.io/trivy/
+
+> **Note**: The extension will work without these tools, but some features will be disabled. Core cluster viewing and resource management uses the Kubernetes API directly and does not require kubectl.
+
 ## ⚠️ Beta Release Information
 
 This is an **early release** (v0.1.0) with core Kubernetes functionality. While tested and stable, it is not yet recommended for production use on critical clusters.

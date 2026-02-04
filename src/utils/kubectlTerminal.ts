@@ -2,6 +2,11 @@ import * as vscode from 'vscode';
 import * as k8s from '@kubernetes/client-node';
 import * as path from 'path';
 import * as os from 'os';
+import * as cp from 'child_process';
+import { promisify } from 'util';
+import { logger } from './logger';
+
+const execAsync = promisify(cp.exec);
 
 export class KubectlTerminal {
     private terminals: Map<string, vscode.Terminal> = new Map();
@@ -14,9 +19,33 @@ export class KubectlTerminal {
     }
 
     /**
+     * Check if kubectl is installed and available
+     */
+    private async checkKubectlAvailable(): Promise<boolean> {
+        try {
+            await execAsync('kubectl version --client --short', { timeout: 5000 });
+            return true;
+        } catch (error) {
+            logger.debug('kubectl not available:', error);
+            return false;
+        }
+    }
+
+    /**
      * Open an integrated kubectl terminal with the current context
      */
     async openKubectlTerminal(): Promise<void> {
+        // Check if kubectl is available
+        const isAvailable = await this.checkKubectlAvailable();
+        if (!isAvailable) {
+            const message = 'kubectl is not installed or not in PATH. Please install kubectl to use terminal features.';
+            const action = await vscode.window.showWarningMessage(message, 'Learn More');
+            if (action === 'Learn More') {
+                vscode.env.openExternal(vscode.Uri.parse('https://kubernetes.io/docs/tasks/tools/'));
+            }
+            return;
+        }
+        
         const context = this.kc.getCurrentContext();
         if (!context) {
             vscode.window.showErrorMessage('No Kubernetes context selected');
@@ -70,6 +99,13 @@ export class KubectlTerminal {
      * Open terminal for a specific namespace
      */
     async openNamespaceTerminal(namespace: string): Promise<void> {
+        // Check if kubectl is available
+        const isAvailable = await this.checkKubectlAvailable();
+        if (!isAvailable) {
+            vscode.window.showWarningMessage('kubectl is not installed or not in PATH. Please install kubectl to use terminal features.');
+            return;
+        }
+        
         const context = this.kc.getCurrentContext();
         if (!context) {
             vscode.window.showErrorMessage('No Kubernetes context selected');
