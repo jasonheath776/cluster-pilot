@@ -30,6 +30,10 @@ import * as treeCommands from './commands/treeCommands';
 
 const execAsync = promisify(cp.exec);
 
+// Activation guard to prevent duplicate activation
+let isActivated = false;
+let lastActivationTime = 0;
+
 // Track availability of external tools
 let externalTools = {
     kubectl: false,
@@ -78,6 +82,22 @@ function safeRegisterCommand(
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+    // Guard against duplicate activation
+    if (isActivated) {
+        logger.warn('Extension already activated, skipping duplicate activation');
+        return;
+    }
+    
+    // Guard against rapid re-activation (within 1 second)
+    const now = Date.now();
+    if (now - lastActivationTime < 1000) {
+        logger.warn('Activation attempted too soon after previous activation, ignoring');
+        return;
+    }
+    
+    isActivated = true;
+    lastActivationTime = now;
+    
     // Initialize logger first - this should always work
     logger.updateConfiguration();
     logger.info('Cluster Pilot extension activating...');
@@ -171,8 +191,13 @@ export async function activate(context: vscode.ExtensionContext) {
         auditLogViewer = new AuditLogViewer(kubeconfigManager.getKubeConfig());
         policyEnforcementManager = new PolicyEnforcementManager(kubeconfigManager.getKubeConfig());
 
-        // Test connection
+        // Test connection (async, non-blocking)
         setTimeout(async () => {
+            if (!k8sClient) {
+                logger.warn('k8sClient not available for connection test');
+                return;
+            }
+            
             logger.debug('Testing Kubernetes API connection...');
             try {
                 const namespaces = await k8sClient.getNamespaces();
@@ -181,7 +206,8 @@ export async function activate(context: vscode.ExtensionContext) {
                 logger.debug(`Connection test: Found ${pods.length} pods`);
             } catch (error) {
                 logger.error('Connection test failed', error);
-                vscode.window.showWarningMessage('Could not connect to Kubernetes cluster. Please check your kubeconfig.');
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                vscode.window.showWarningMessage(`Could not connect to Kubernetes cluster: ${errorMsg}. Check your kubeconfig and cluster status.`);
             }
         }, 2000);
 
@@ -918,6 +944,18 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    logger.info('Cluster Pilot extension is now deactivated');
-    logger.dispose();
+    logger.info('Cluster Pilot extension is now deactivating...');
+    
+    try {
+        // Managers are local variables, no need to clean up global state
+        // VS Code's context.subscriptions will handle proper disposal
+        
+        logger.info('Cluster Pilot extension deactivated successfully');
+    } catch (error) {
+        logger.error('Error during deactivation:', error);
+    } finally {
+        // Always reset activation flag and dispose logger
+        isActivated = false;
+        logger.dispose();
+    }
 }
