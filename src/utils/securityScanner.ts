@@ -59,6 +59,7 @@ export class SecurityScanner {
     async scanImage(image: string): Promise<VulnerabilityScan | null> {
         const hastrivy = await this.checkTrivyInstalled();
         if (!hastrivy) {
+            vscode.window.showWarningMessage('Trivy is not installed. Image vulnerability scanning requires Trivy. Install from https://aquasecurity.github.io/trivy/');
             return null;
         }
 

@@ -1490,6 +1490,11 @@
           "type": "boolean",
           "default": true,
           "description": "Enable telemetry for cache hit rates and performance metrics"
+        },
+        "clusterPilot.showToolAvailabilityWarnings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show warnings when optional tools (kubectl, helm, trivy) are not installed"
         }
       }
     }

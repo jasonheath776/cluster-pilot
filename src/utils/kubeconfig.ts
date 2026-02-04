@@ -49,7 +49,9 @@ export class KubeconfigManager {
                 
                 const context = this.kc.getCurrentContext();
                 if (!context) {
-                    logger.warn('No current context configured in kubeconfig');
+                    const msg = 'No current context configured in kubeconfig. Please set a current context using kubectl or your cluster management tool.';
+                    logger.warn(msg);
+                    vscode.window.showWarningMessage(msg);
                 }
                 
                 logger.info('Kubeconfig loaded from:', this.configPath);
@@ -57,6 +59,7 @@ export class KubeconfigManager {
                     logger.debug('Current context:', context);
                 }
             } else {
+                logger.warn(`Kubeconfig not found at ${this.configPath}, attempting to load from default location`);
                 this.kc.loadFromDefault();
                 const clusterObj = this.kc.getCurrentCluster();
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,8 +71,19 @@ export class KubeconfigManager {
                 logger.info('Kubeconfig loaded from default location');
             }
         } catch (error) {
-            logger.error('Failed to load kubeconfig', error);
-            vscode.window.showErrorMessage(`Failed to load kubeconfig: ${error instanceof Error ? error.message : String(error)}`);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            logger.error('Failed to load kubeconfig:', error);
+            
+            // Provide actionable error message
+            const message = `Failed to load Kubernetes configuration: ${errorMsg}. Please ensure you have a valid kubeconfig file.`;
+            vscode.window.showErrorMessage(message, 'Open Settings', 'Learn More').then(selection => {
+                if (selection === 'Open Settings') {
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'clusterPilot.kubeconfigPath');
+                } else if (selection === 'Learn More') {
+                    vscode.env.openExternal(vscode.Uri.parse('https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/'));
+                }
+            });
+            
             try {
                 this.kc.loadFromDefault();
             } catch (defaultError) {
